@@ -50,7 +50,7 @@ export
       multilayer_perceptron,
 
        # Miscellaneous
-      ControllerExperiment
+      ControllerIterator
 
 
 const AbsVec = AbstractVector
@@ -87,6 +87,6 @@ include("algorithms/MPPI.jl")
 include("algorithms/NPG.jl")
 
 
-include("controllerexperiment.jl")
+include("controller.jl")
 
 end # module
