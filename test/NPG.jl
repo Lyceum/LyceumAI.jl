@@ -7,7 +7,7 @@ using LyceumBase.Tools: filter_nt
 
 function runNPG(etype, plotiter=1)
     #Random.seed!(1) # TODO all threads
-    seed_threadrngs!(1295)
+    seed_threadrngs!()
 
     BLAS.set_num_threads(Threads.nthreads())
 

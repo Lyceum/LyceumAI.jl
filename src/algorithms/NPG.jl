@@ -33,7 +33,7 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
         valuefit!;
         Hmax = 100,
         N = 5120,
-        Nmean = max(Hmax, div(N, 10)),
+        Nmean = max(Hmax*2, N),
         stopcb = infinitecb,
         norm_step_size = 0.05,
         gamma = 0.995,
@@ -112,6 +112,10 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack vanilla_pg, natural_pg, grad_loglikelihoods, fisher_information_matrix = npg
     @unpack advantages_vec, returns_vec = npg
 
+    meanbatch = @closure sample!(reset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
+        action .= policy(observation)
+    end
+    meanbatch = deepcopy(meanbatch)
 
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
@@ -195,11 +199,6 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     flatupdate!(policy, natural_pg)
 
-
-    #meanbatch = @closure sample!(reset!, envsampler, npg.Nmean, Hmax=Hmax, copy=true) do action, state, observation
-    #    action .= policy(observation)
-    #end
-    meanbatch = batch
 
 
     result = (
