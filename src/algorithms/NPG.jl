@@ -124,7 +124,6 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             envsampler,
             N,
             Hmax = Hmax,
-            nthreads = 1,
         ) do action, state, observation
             randn!(action) # TODO noise buffer for better determinism
             getaction!(action, policy, observation)
