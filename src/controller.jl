@@ -5,12 +5,14 @@ struct ControllerIterator{C,E,B}
     T::Int
     trajectory::B
     plotiter::Int
+    randstart::Bool
 
     function ControllerIterator(
         controller,
         env::AbstractEnv;
         T = 1000,
         plotiter = 1,
+        randstart = false
     )
         trajectory = (
             states = Array(undef, statespace(env), T),
@@ -25,6 +27,7 @@ struct ControllerIterator{C,E,B}
             T,
             trajectory,
             plotiter,
+            randstart
         )
     end
 end
@@ -48,7 +51,7 @@ function Base.iterate(m::ControllerIterator, t)
     (t, m), t + 1
 end
 
-Base.iterate(m::ControllerIterator) = (reset!(m.env); reset!(m.controller); iterate(m, 1))
+Base.iterate(m::ControllerIterator) = (m.randstart ? randreset!(m.env) : reset!(m.env) ; reset!(m.controller); iterate(m, 1))
 Base.length(m::ControllerIterator) = m.T
 
 function rolloutstep!(controller, traj, env, t)
