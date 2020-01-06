@@ -30,7 +30,7 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
         envs = [e for e in sharedmemory_envctor(Threads.nthreads())]
 
         asp = actionspace(first(envs))
-        osp = observationspace(first(envs))
+        osp = obsspace(first(envs))
 
         nd, elt = ndims(asp), eltype(asp)
         if nd != 1 || !(elt <: AbstractFloat)

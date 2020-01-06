@@ -8,16 +8,16 @@ struct ControllerIterator{C,E,B}
 
     function ControllerIterator(
         controller,
-        env::AbstractEnv;
+        env::AbstractEnvironment;
         T = 1000,
         plotiter = 1,
     )
         trajectory = (
             states = Array(undef, statespace(env), T),
-            observations = Array(undef, observationspace(env), T),
+            observations = Array(undef, obsspace(env), T),
             actions = Array(undef, actionspace(env), T),
             rewards = Array(undef, rewardspace(env), T),
-            evaluations = Array(undef, evaluationspace(env), T),
+            evaluations = Array(undef, evalspace(env), T),
         )
         new{typeof(controller),typeof(env),typeof(trajectory)}(
             controller,

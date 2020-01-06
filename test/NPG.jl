@@ -12,7 +12,7 @@ function runNPG(etype, plotiter=1)
     BLAS.set_num_threads(Threads.nthreads())
 
     e = etype()
-    dobs, dact = length(observationspace(e)), length(actionspace(e))
+    dobs, dact = length(obsspace(e)), length(actionspace(e))
 
     DT = Float32
     Hmax, K = 500, 16
@@ -35,7 +35,7 @@ function runNPG(etype, plotiter=1)
     value = Flux.paramtype(Float64, value)
 
     npg = NaturalPolicyGradient(
-        (n) -> sharedmemory_envs(etype, n),
+        (n) -> tconstruct(etype, n),
         policy,
         value,
         valuetrainer,

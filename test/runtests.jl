@@ -17,7 +17,7 @@ seed_threadrngs!(1)
         H = 25
 
         mppi = MPPI(
-            sharedmemory_envctor = (i)->sharedmemory_envs(etype, i),
+            sharedmemory_envctor = (i)->tconstruct(etype, i),
             covar0 = Diagonal(0.001^2*I, size(actionspace(env), 1)),
             lambda = 0.005,
             K =  K,
@@ -27,7 +27,7 @@ seed_threadrngs!(1)
 
         s = Array(undef, statespace(env))
         a = Array(undef, actionspace(env))
-        o = Array(undef, observationspace(env))
+        o = Array(undef, obsspace(env))
         for t = 1:T
             getstate!(s, env)
             getobs!(o, env)
