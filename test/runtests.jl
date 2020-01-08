@@ -1,40 +1,43 @@
-using Test, Pkg, LyceumAI, LyceumMuJoCo, LinearAlgebra, LyceumBase, Statistics
-using LyceumBase.Tools
+using Test
+using Pkg
+using Statistics
 
-seed_threadrngs!(1)
+using Flux
+
+using LyceumBase
+using LyceumBase.Tools
+using LyceumMuJoCo
+using LinearAlgebra
+using UniversalLogger
+using LyceumAI
+
+
+function testrollout(getaction!, env::AbstractEnvironment, T)
+    s = Array(undef, statespace(env))
+    a = Array(undef, actionspace(env))
+    o = Array(undef, obsspace(env))
+    for t = 1:T
+        getstate!(s, env)
+        getobs!(o, env)
+        getaction!(a, s, o)
+        setaction!(env, a)
+        step!(env)
+    end
+    env
+end
+
 
 @testset "LyceumAI.jl" begin
 
-    @testset "util" begin
-        include("util.jl")
+    seed_threadrngs!(1)
+
+    @testset "algorithms" begin
+        include("algorithms/MPPI.jl")
+        include("algorithms/NPG.jl")
     end
 
-    @testset "MPPI (PointMass)" begin
-        etype = LyceumMuJoCo.PointMass
-        env = etype()
-        T = 1000
-        K = 32
-        H = 25
-
-        mppi = MPPI(
-            sharedmemory_envctor = (i)->tconstruct(etype, i),
-            covar0 = Diagonal(0.001^2*I, size(actionspace(env), 1)),
-            lambda = 0.005,
-            K =  K,
-            H = H,
-            gamma = 0.99
-        )
-
-        s = Array(undef, statespace(env))
-        a = Array(undef, actionspace(env))
-        o = Array(undef, obsspace(env))
-        for t = 1:T
-            getstate!(s, env)
-            getobs!(o, env)
-            getaction!(a, s, o, mppi)
-            step!(env, a)
-        end
-        @test abs(geteval(env)) < 0.001
+    @testset "util" begin
+        include("util/misc.jl")
     end
 
 end
