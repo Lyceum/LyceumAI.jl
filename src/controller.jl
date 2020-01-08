@@ -59,8 +59,13 @@ function rolloutstep!(controller, traj, env, t)
     getstate!(st, env)
     getobs!(ot, env)
     getaction!(at, st, ot, controller)
+    setaction!(env, at)
 
-    r, e, done = step!(env, at)
+    step!(env)
+    r = getreward(st, at, ot, env)
+    e = geteval(st, at, ot, env)
+    done = isdone(st, at, ot, env)
+
     traj.rewards[t] = r
     traj.evaluations[t] = e
 
