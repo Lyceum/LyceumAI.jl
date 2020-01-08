@@ -19,7 +19,7 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
     statebuffers::Vector{S}
 
     function MPPI{DT}(
-        sharedmemory_envctor,
+        env_tconstructor,
         K::Integer,
         H::Integer,
         covar0::AbstractMatrix{<:Real},
@@ -28,7 +28,7 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
         valuefn,
         initfn!,
     ) where {DT<:AbstractFloat}
-        envs = [e for e in sharedmemory_envctor(Threads.nthreads())]
+        envs = [e for e in env_tconstructor(Threads.nthreads())]
 
         ssp = statespace(first(envs))
         asp = actionspace(first(envs))
@@ -90,7 +90,7 @@ end
 
 function MPPI(;
     dtype = Float64,
-    sharedmemory_envctor,
+    env_tconstructor,
     covar0,
     lambda,
     K,
@@ -99,7 +99,7 @@ function MPPI(;
     valuefn = zerofn,
     initfn! = default_initfn!,
 )
-    MPPI{dtype}(sharedmemory_envctor, K, H, covar0, lambda, gamma, valuefn, initfn!)
+    MPPI{dtype}(env_tconstructor, K, H, covar0, lambda, gamma, valuefn, initfn!)
 end
 
 LyceumBase.reset!(m::MPPI) = (fill!(m.meantrajectory, 0); m)
