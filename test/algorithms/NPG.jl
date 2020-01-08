@@ -1,4 +1,5 @@
 @testset "NPG (PointMass)" begin
+    seed_threadrngs!(1)
     etype = LyceumMuJoCo.PointMass
 
     e = etype()
@@ -41,7 +42,6 @@
     for (i, state) in enumerate(npg)
         i > 30 && break
         meanterminal_eval = state.meanterminal_eval
-        @info meanterminal_eval
     end
 
     @test meanterminal_eval < 0.1

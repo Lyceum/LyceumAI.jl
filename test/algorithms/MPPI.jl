@@ -1,4 +1,5 @@
 @testset "MPPI (PointMass)" begin
+    seed_threadrngs!(1)
     etype = LyceumMuJoCo.PointMass
     env = etype()
     T = 300
