@@ -27,7 +27,7 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
     returns_vec::Vector{DT} # N
 
     function NaturalPolicyGradient(
-        env_ctor,
+        env_tconstructor,
         policy,
         value,
         valuefit!;
@@ -70,7 +70,7 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
             DT = DTnew
         end
 
-        envsampler = EnvSampler(env_ctor, dtype=DT)
+        envsampler = EnvSampler(env_tconstructor, dtype=DT)
 
         z(d...) = zeros(DT, d...)
         new{

@@ -1,5 +1,5 @@
 # Algorithm 2 from https://www.cc.gatech.edu/~bboots3/files/InformationTheoreticMPC.pdf
-struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
+struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
     # MPPI parameters
     K::Int
     H::Int
@@ -15,10 +15,11 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
     covar_ul::UpperTriangular{DT,C}
     meantrajectory::Matrix{DT}
     trajectorycosts::Vector{DT}
-    observationbuffers::Vector{O}
+    obsbuffers::Vector{O}
+    statebuffers::Vector{S}
 
     function MPPI{DT}(
-        sharedmemory_envctor,
+        env_tconstructor,
         K::Integer,
         H::Integer,
         covar0::AbstractMatrix{<:Real},
@@ -27,10 +28,11 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
         valuefn,
         initfn!,
     ) where {DT<:AbstractFloat}
-        envs = [e for e in sharedmemory_envctor(Threads.nthreads())]
+        envs = [e for e in env_tconstructor(Threads.nthreads())]
 
+        ssp = statespace(first(envs))
         asp = actionspace(first(envs))
-        osp = observationspace(first(envs))
+        osp = obsspace(first(envs))
 
         nd, elt = ndims(asp), eltype(asp)
         if nd != 1 || !(elt <: AbstractFloat)
@@ -55,7 +57,8 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
         meantrajectory = zeros(DT, asp, H)
         trajectorycosts = zeros(DT, K)
         noise = zeros(DT, asp, H, K)
-        observationbuffers = [allocate(osp) for _ = 1:Threads.nthreads()]
+        obsbuffers = [allocate(osp) for _ = 1:Threads.nthreads()]
+        statebuffers = [allocate(ssp) for _ = 1:Threads.nthreads()]
 
         new{
             DT,
@@ -64,7 +67,8 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
             typeof(valuefn),
             eltype(envs),
             typeof(initfn!),
-            eltype(observationbuffers),
+            eltype(obsbuffers),
+            eltype(statebuffers),
         }(
             K,
             H,
@@ -78,14 +82,15 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O}
             covar_ul,
             meantrajectory,
             trajectorycosts,
-            observationbuffers,
+            obsbuffers,
+            statebuffers
         )
     end
 end
 
 function MPPI(;
     dtype = Float64,
-    sharedmemory_envctor,
+    env_tconstructor,
     covar0,
     lambda,
     K,
@@ -94,7 +99,7 @@ function MPPI(;
     valuefn = zerofn,
     initfn! = default_initfn!,
 )
-    MPPI{dtype}(sharedmemory_envctor, K, H, covar0, lambda, gamma, valuefn, initfn!)
+    MPPI{dtype}(env_tconstructor, K, H, covar0, lambda, gamma, valuefn, initfn!)
 end
 
 LyceumBase.reset!(m::MPPI) = (fill!(m.meantrajectory, 0); m)
@@ -142,11 +147,12 @@ end
 
 function perturbedrollout!(m::MPPI{DT,nu}, state, k, tid) where {DT,nu}
     env = m.envs[tid]
-    obsbuf = m.observationbuffers[tid]
+    obsbuf = m.obsbuffers[tid]
+    statebuf = m.statebuffers[tid]
     mean = m.meantrajectory
     noise = m.noise
 
-    reset!(env, state)
+    setstate!(env, state)
     discountedreward = zero(DT)
     discountfactor = one(DT)
     @uviews mean noise @inbounds for t = 1:m.H
@@ -154,8 +160,13 @@ function perturbedrollout!(m::MPPI{DT,nu}, state, k, tid) where {DT,nu}
         noise_tk = SVector{nu,DT}(view(noise, :, t, k))
         action_t = mean_t + noise_tk
         setaction!(env, action_t)
+
         step!(env)
-        reward = getreward(env)
+
+        getobs!(obsbuf, env)
+        getstate!(statebuf, env)
+        reward = getreward(statebuf, action_t, obsbuf, env)
+
         discountedreward += reward * discountfactor
         discountfactor *= m.gamma
     end # env at t=H+1

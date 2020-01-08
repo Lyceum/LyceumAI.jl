@@ -8,16 +8,16 @@ struct ControllerIterator{C,E,B}
 
     function ControllerIterator(
         controller,
-        env::AbstractEnv;
+        env::AbstractEnvironment;
         T = 1000,
         plotiter = 1,
     )
         trajectory = (
             states = Array(undef, statespace(env), T),
-            observations = Array(undef, observationspace(env), T),
+            observations = Array(undef, obsspace(env), T),
             actions = Array(undef, actionspace(env), T),
             rewards = Array(undef, rewardspace(env), T),
-            evaluations = Array(undef, evaluationspace(env), T),
+            evaluations = Array(undef, evalspace(env), T),
         )
         new{typeof(controller),typeof(env),typeof(trajectory)}(
             controller,
@@ -59,8 +59,13 @@ function rolloutstep!(controller, traj, env, t)
     getstate!(st, env)
     getobs!(ot, env)
     getaction!(at, st, ot, controller)
+    setaction!(env, at)
 
-    r, e, done = step!(env, at)
+    step!(env)
+    r = getreward(st, at, ot, env)
+    e = geteval(st, at, ot, env)
+    done = isdone(st, at, ot, env)
+
     traj.rewards[t] = r
     traj.evaluations[t] = e
 
