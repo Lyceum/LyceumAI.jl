@@ -37,9 +37,9 @@ uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
 version = "0.4.0"
 
 [[BSON]]
-git-tree-sha1 = "4c4fdd4d9935fdd820f3f2a5a33d179f5aaea71e"
+git-tree-sha1 = "e794bd8f3f319218e8c8b46657631bdbea2807ca"
 uuid = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
-version = "0.2.4"
+version = "0.2.5"
 
 [[BangBang]]
 deps = ["Compat", "ConstructionBase", "Future", "InitialValues", "LinearAlgebra", "Requires", "Setfield", "Tables", "ZygoteRules"]
@@ -691,7 +691,9 @@ version = "1.1.0"
 
 [[UniversalLogger]]
 deps = ["Logging", "PushVectors"]
-git-tree-sha1 = "1e57536d596f90ff2d691012f68483705714beea"
+git-tree-sha1 = "16cd7dfbab8c1a583446a496b869c947d84d9adb"
+repo-rev = "master"
+repo-url = "https://github.com/Lyceum/UniversalLogger.jl.git"
 uuid = "5c5e3362-9445-4819-9f95-51c44c51adeb"
 version = "0.1.0"
 
