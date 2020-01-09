@@ -1,4 +1,3 @@
-
 struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
     envsampler::S
     policy::P

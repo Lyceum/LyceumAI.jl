@@ -33,7 +33,7 @@ end
 
     @testset "algorithms" begin
         include("algorithms/MPPI.jl")
-        include("algorithms/NPG.jl")
+        include("algorithms/naturalpolicygradient.jl")
     end
 
     @testset "util" begin

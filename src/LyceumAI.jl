@@ -84,7 +84,7 @@ abstract type AbstractTrainer end
 # --
 
 include("algorithms/MPPI.jl")
-include("algorithms/NPG.jl")
+include("algorithms/naturalpolicygradient.jl")
 
 
 include("controller.jl")
