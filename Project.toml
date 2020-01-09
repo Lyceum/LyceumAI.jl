@@ -29,7 +29,23 @@ UnsafeArrays = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
+Distances = "0.8.2"
+EllipsisNotation = "0.4"
+FastClosures = "0.3.2"
 Flux = "0.10"
+IterativeSolvers = "0.8.1"
+LearnBase = "0.2.2"
+LyceumBase = "0.1"
+LyceumMuJoCo = "0.1"
+MLDataPattern = "0.5"
+MacroTools = "0.5.3"
+MuJoCo = "0.1.1"
+Parameters = "0.12"
+Shapes = "0.1"
+StaticArrays = "0.12.1"
+UniversalLogger = "0.1"
+UnsafeArrays = "1"
+Zygote = "0.4.4"
 julia = "1.3"
 
 [extras]
