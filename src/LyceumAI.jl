@@ -71,6 +71,7 @@ Base.eltype(m::AbstractModel{T}) where {T} = T
 
 
 include("util/misc.jl")
+include("vectorproducts.jl")
 
 include("flux.jl")
 
@@ -83,8 +84,9 @@ abstract type AbstractTrainer end
 #@mustimplement fit!(m::AbstractModel, data); export fit!
 # --
 
+include("algorithms/cg.jl")
 include("algorithms/MPPI.jl")
-include("algorithms/NPG.jl")
+include("algorithms/naturalpolicygradient.jl")
 
 
 include("controller.jl")
