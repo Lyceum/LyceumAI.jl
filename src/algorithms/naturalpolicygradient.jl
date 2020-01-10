@@ -20,8 +20,8 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
     vanilla_pg::Vector{DT} # nparams
     natural_pg::Vector{DT} # nparams
 
-    grad_loglikelihoods::Array{DT,2} # nparams x N
-    fisher_information_matrix::Symmetric{DT} # nparams x nparams
+    fvp_op::FVP{DT, Array{DT, 2}}
+    cg_op::CG{DT}
 
     advantages_vec::Vector{DT} # N
     returns_vec::Vector{DT} # N
@@ -41,7 +41,6 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
         max_cg_iter = 12, # maybe 2 * action dim is a better heuristic?
         cg_tol = 1e-18, # prob something like 1e-9 or 1e-6...
     )
-
 
         0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
         0 < N || throw(ArgumentError("N must be > 0"))
@@ -73,6 +72,9 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
         envsampler = EnvSampler(env_tconstructor, dtype=DT)
 
         z(d...) = zeros(DT, d...)
+        fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
+        cg_op = CG{DT}(np, N)
+
         new{
             DT,
             typeof(envsampler),
@@ -96,66 +98,26 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
             DT(cg_tol),
             z(np),
             z(np),
-            z(np, N),
-            Symmetric(z(np, np)),
+            fvp_op,
+            cg_op,
             z(N),
             z(N)
         )
     end
 end
 
-function ggt!(c, v, gradll, cache, scale)
-    #c .= (gradll*(gradll'*v)) * scale
-    mul!(cache, gradll', v)
-    mul!(c, gradll, cache)
-    lmul!(scale, c) # need to scale cache, not c
-end
-
-function mycg!(x, hvp!::Function, b;
-               tol=sqrt(eps(real(eltype(b)))),
-               maxiter::Int=length(x))
-    u = zero(x) # this allocates; colin do your magic
-    r = copy(b)
-    c = zero(x)
-
-    residual = norm(b)
-    reltol = residual * tol
-    prev_residual = one(residual)
-    for i=1:maxiter
-        if residual < reltol
-            break
-        end
-
-        β = residual^2 / prev_residual^2
-        u .= r .+ β .* u
-
-        # c = A * u
-        hvp!(c, u)
-        #mul!(c, A, u)
-
-        α = residual^2 / dot(u, c)
-
-        # Improve solution and residual
-        x .+= α .* u
-        r .-= α .* c
-
-        prev_residual = residual
-        residual = norm(r)
-    end
-end
-
-
 # Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
 # https://arxiv.org/pdf/1703.02660.pdf
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
-    @unpack vanilla_pg, natural_pg, grad_loglikelihoods, fisher_information_matrix = npg
+    @unpack vanilla_pg, natural_pg = npg
     @unpack advantages_vec, returns_vec = npg
+    @unpack fvp_op, cg_op = npg
 
     meanbatch = @closure sample!(reset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
         action .= policy(observation)
     end
-    meanbatch = deepcopy(meanbatch)
+    meanbatch = deepcopy(meanbatch) # TODO cxs
 
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
@@ -171,7 +133,6 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     @unpack observations, terminal_observations, actions, rewards, evaluations = batch
-    @info "MEAN TRAJ LENGTH: $(mean(map(length, rewards)))"
     obs_mat     = flatview(observations)
     termobs_mat = flatview(terminal_observations)
     act_mat     = flatview(actions)
@@ -185,99 +146,54 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Compute normalized GAE advantages and returns
     GAEadvantages!(advantages, baseline, rewards, termvals, gamma, gaelambda)
-    #whiten!(advantages_vec)
     nstep_returns!(returns, rewards, gamma)
 
     # Fit value function to the current batch
     elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, obs_mat, returns_vec))
 
-    FIM = false
-    if FIM #  can put a check here for if nparams < nsamples, do fisher?
-        # Compute sample-wise gradient of the loglikelihoods of actions taken during the rollout
-        elapsed_gradll = @elapsed grad_loglikelihood!(
-            grad_loglikelihoods,
-            policy,
-            obs_mat,
-            act_mat,
-            8,
-        )
+    # Compute ∇log π_θ(at | ot)
+    elapsed_gradll = @elapsed grad_loglikelihood!(
+                                                  fvp_op.glls,
+                                                  policy,
+                                                  obs_mat,
+                                                  act_mat,
+                                                  8
+                                                 )
 
-        # Compute the vanilla policy gradient
-        # vanilla_pg <-- 1/N * grad_loglikelihoods * advantages_vec
-        elapsed_vpg = @elapsed mul!(
-            vanilla_pg,
-            grad_loglikelihoods,
-            advantages_vec,
-            one(DT) / N,
-            zero(DT),
-        )
+    # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
+    elapsed_vpg = @elapsed mul!(
+                                vanilla_pg,
+                                fvp_op.glls,
+                                advantages_vec,
+                                one(DT) / N,
+                                zero(DT)
+                               )
 
-        # compute Fisher matrix (ALG7)
-        # fisher_information_matrix <-- 1/N * grad_loglikelihoods * transpose(grad_loglikelihoods)
-        # NOTE: fisher_information_matrix isa LinearAlgebra.Symmetric, only the upper triangular portion is computed
-        #elapsed_fim = @elapsed symmul!(fisher_information_matrix, grad_loglikelihoods, transpose(grad_loglikelihoods), one(DT) / N, zero(DT))
-        elapsed_fim = @elapsed BLAS.syrk!(
-            'U',
-            'N',
-            one(DT) / N,
-            grad_loglikelihoods,
-            zero(DT),
-            fisher_information_matrix.data,
-        )
+    # solve for natural_pg = FIM * vanilla_pg using conjugate gradients
+    # where the full FIM is avoiding using Fisher Vector Products
+    # TODO better initial guess?
+    natural_pg .= zero(eltype(natural_pg)) # start CG from initial guess of 0
+    elapsed_cg = @elapsed cg_op(
+                                natural_pg,
+                                fvp_op,
+                                vanilla_pg;
+                                tol = npg.cg_tol,
+                                maxiter = npg.max_cg_iter,
+                                initiallyzero = true
+                               )
 
 
-        ## gradient ascent (ALG7) --
-        elapsed_cg = @elapsed cg!(
-            natural_pg,
-            fisher_information_matrix,
-            vanilla_pg;
-            tol = npg.cg_tol,
-            maxiter = npg.max_cg_iter,
-        )
-    else
-        elapsed_gradll = @elapsed grad_loglikelihood!(
-                                                      grad_loglikelihoods,
-                                                      policy,
-                                                      obs_mat,
-                                                      act_mat,
-                                                      8
-                                                     )
-        elapsed_vpg = @elapsed mul!(
-                                    vanilla_pg,
-                                    grad_loglikelihoods,
-                                    advantages_vec,
-                                    one(DT) / N,
-                                    zero(DT)
-                                   )
-
-        elapsed_fim = 1.0
-
-        #advantages_vec is used as cache
-        hvp!(c, v) = ggt!(c, v, grad_loglikelihoods, advantages_vec, one(DT)/N)
-
-        natural_pg .= zero(eltype(natural_pg)) # zero it out
-        elapsed_cg = @elapsed mycg!(
-                                    natural_pg,
-                                    hvp!,
-                                    vanilla_pg;
-                                    tol = npg.cg_tol,
-                                    maxiter = npg.max_cg_iter,
-                                   )
-    end
-
+    # update policy parameters: θ += alpha * natural_pg
     alpha = sqrt(npg.norm_step_size / dot(natural_pg, vanilla_pg))
     lmul!(alpha, natural_pg)
     any(isnan, natural_pg) && throw(DomainError(natural_pg, "NaN detected in gradient"))
-
     flatupdate!(policy, natural_pg)
-
 
     result = (
         iter = i,
         elapsed_sampled = elapsed_sample,
         elapsed_gradll = elapsed_gradll,
         elapsed_vpg = elapsed_vpg,
-        elapsed_fim = elapsed_fim,
         elapsed_cg = elapsed_cg,
         elapsed_valuefit = elapsed_valuefit,
 

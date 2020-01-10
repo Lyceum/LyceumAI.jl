@@ -28,16 +28,17 @@ end
 
 
 @testset "LyceumAI.jl" begin
-
     seed_threadrngs!(1)
 
     @testset "algorithms" begin
         include("algorithms/MPPI.jl")
         include("algorithms/naturalpolicygradient.jl")
     end
-
     @testset "util" begin
         include("util/misc.jl")
+    end
+    @testset "vectorproducts" begin
+        include("vectorproducts.jl")
     end
 
 end
