@@ -79,8 +79,8 @@ end
     gamma::Real,
 )
     @boundscheck begin
-        if size(returns) != size(rewards) || size(rewards, 2) != length(terminal_values)
-            throw(ArgumentError("returns and rewards must have same size and share second axis with terminal_values"))
+        if !(length(returns) == length(rewards) == length(terminal_values))
+            throw(ArgumentError("returns, rewards, and terminal_values must have same length"))
         end
     end
 
