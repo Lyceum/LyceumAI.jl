@@ -13,6 +13,8 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
     norm_step_size::DT
     gamma::DT
     gaelambda::DT
+    whiten_advantages::Bool
+    bootstrapped_nstep_returns::Bool
 
     max_cg_iter::Int
     cg_tol::DT
@@ -40,6 +42,8 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
         gaelambda = 0.98,
         max_cg_iter = 12, # maybe 2 * action dim is a better heuristic?
         cg_tol = 1e-18, # prob something like 1e-9 or 1e-6...
+        whiten_advantages = false,
+        bootstrapped_nstep_returns = false
     )
 
         0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
@@ -94,6 +98,8 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
             DT(norm_step_size),
             DT(gamma),
             DT(gaelambda),
+            whiten_advantages,
+            bootstrapped_nstep_returns,
             max_cg_iter,
             DT(cg_tol),
             z(np),
@@ -146,7 +152,12 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Compute normalized GAE advantages and returns
     GAEadvantages!(advantages, baseline, rewards, termvals, gamma, gaelambda)
-    nstep_returns!(returns, rewards, gamma)
+    npg.whiten_advantages && whiten!(advantages_vec)
+    if npg.bootstrapped_nstep_returns
+        bootstrapped_nstep_returns!(returns, rewards, termvals, gamma)
+    else
+        nstep_returns!(returns, rewards, gamma)
+    end
 
     # Fit value function to the current batch
     elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, obs_mat, returns_vec))
