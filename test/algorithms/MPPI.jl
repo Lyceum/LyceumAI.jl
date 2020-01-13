@@ -14,9 +14,8 @@
         H = H,
         gamma = 0.99
     )
-    env = testrollout(env, T) do a, s, o
-        getaction!(a, s, o, mppi)
+    experiment = ControllerIterator(mppi, env; T=T, plotiter=T+1)
+    for x in experiment
     end
     @test abs(geteval(env)) < 0.001
 end
-
