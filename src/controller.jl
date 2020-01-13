@@ -53,7 +53,6 @@ end
 
 function Base.iterate(it::ControllerIterator)
     it.randstart ? randreset!(it.env) : reset!(it.env)
-    error(getstate(it.env))
     reset!(it.controller)
     iterate(it, 1)
 end
