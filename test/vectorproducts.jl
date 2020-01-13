@@ -1,5 +1,4 @@
 @testset "FVP" begin
-    @warn "YOOOOO"
     # test for correct output and no side effects
     d1, d2 = 5, 10
     @test let glls = rand(d1, d2), x = rand(d1)
