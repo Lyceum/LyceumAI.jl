@@ -29,6 +29,49 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     advantages_vec::Vector{DT} # N
     returns_vec::Vector{DT} # N
 
+    @doc """
+
+        NaturalPolicyGradient( env_tconstructor, policy, value, valuefit!)
+
+    Constructor for NPG algorithm struct, with parameters below:
+
+        env_tconstructor = expects function of an int i, returns i instances of environment
+        policy           = policy function that accepts observations, [ obssize x n ], and returns [ ctrlsize x n ] action vectors. See LyceumAI.jl/src/models/policy.jl for policy structs.
+        value            = similar to policy but represents the estimated value for a given observation [ obssize x n ] and returns [ 1 x n ] values.
+        valuefit!        = function with signature valuefit!(value, obs_mat, returns_vec) that fits the above value function to data; see LyceumAI.jl/src/flux.jl for FluxTrainer example.
+
+        Hmax                       = Maximum Length of a sample Trajectory
+        N                          = Total number of data samples used for each policy gradient step
+        Nmean                      = Total number of data samples for the mean policy (without stochastic noise)
+        stopcb                     = A callback to signal when to break out of iteration
+        norm_step_size             = Scaling for weighing the applied gradient update after gradient normalization has occured. This process makes training much more stable to step sizes; see equation 5 in https://arxiv.org/pdf/1703.02660.pdf for more details
+        gamma                      = Reward discount, applied as `for t = 1:Hmax ( gamma^(t-1) * reward[t] ) end`
+        gaelambda                  = Generalized Advantage Estimate parameter, balances bias and variance comparing current reward with value function estimate. See https://arxiv.org/pdf/1506.02438.pdf for details.
+        max_cg_iter                = Conjugate Gradient is used to estimate the inverse Fisher * gradient computation; this is the number of iterations to use
+        cg_tol                     = The numerical tolerance used to break out of the CG loop
+        whiten_advantages          = Boolean flag for whether to apply statistical whitening to calculated advantages (resulting in zero mean, 1 stdev data)
+        bootstrapped_nstep_returns = Boolean flag controls the return calculation for the terminal state of a rollout trajectory
+
+
+    For some continuous control tasks, one may consider the following notes and "anecdata" when applying NPG to new tasks and environments:
+
+    1) For two policies that both learn to complete a task satisfactorially, the larger one may not perform significantly better. A minimum amount of representational power is necessary, but larger networks may not offer quantitative benefits. The same goes for the value function approximator.
+    2) Hmax needs to be sufficiently long for the correct behavior to emerge; N needs to be sufficiently large that the agent samples useful data. They may also be surprisingly small for simple tasks. These parameters are the main tunables when applying NPG.
+    3) One might consider the norm_step_size and max_cg_iter paramters as the next most important when initially testing NPG on new tasks, assuming Hmax and N are appropriately chosen for the task. gamma has interaction with Hmax, while gaelambda's default has been empirically found to be stable for a wide range of tasks.
+
+    # Example that assumes policy and value functions have been constructed
+    ```julia-repl
+    julia> npg = NaturalPolicyGradient(
+              (i) -> tconstructor(env, i),
+              policy,
+              value,
+              valuefit!)
+    ```
+
+    See for more details:
+    Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
+    https://arxiv.org/pdf/1703.02660.pdf
+    """
     function NaturalPolicyGradient(
         env_tconstructor,
         policy,
@@ -116,8 +159,31 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     end
 end
 
-# Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
-# https://arxiv.org/pdf/1703.02660.pdf
+"""
+    Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
+
+Iterator function for the NaturalPolicyGradient struct.
+
+# Example that assumes policy and value functions have been constructed
+```julia-repl
+julia> npg = NaturalPolicyGradient(
+        (i) -> tconstructor(env, i),
+        policy,
+        value,
+        valuefit!)
+julia> for (i, state) in enumerate(npg)
+          if i >= 200
+             break # Iterates the NPG algorithm 200 times.
+          end
+       end
+
+julia> state, i = iterate(npg, 1) # runs one step of the algorithm, returning state
+```
+
+See for more details:
+Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
+https://arxiv.org/pdf/1703.02660.pdf
+"""
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
     @unpack vanilla_pg, natural_pg = npg

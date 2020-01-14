@@ -14,6 +14,29 @@ function DiagGaussianPolicy{F}(meanNN, logstd) where {F}
     DiagGaussianPolicy{F,typeof(meanNN),typeof(logstd)}(meanNN, logstd)
 end
 
+"""
+    DiagGaussianPolicy( neuralnetwork, ::Vector{T} )
+
+This struct presents a Policy object for policy gradient methods. It contains a function approximator object,
+often a neural netowrk and a vector of values representing the standard deviation of noise to make the policy
+stochastic. When the policy is sampled, this noise is exponentated before added to the network output. See 
+`getaction!(actions::AbsVec, policy::DiagGaussianPolicy, features::AbsVec)`for more details.
+
+```julia-repl
+julia> policy = DiagGaussianPolicy(
+           multilayer_perceptron(
+               dobs,
+               32,
+               32,
+               dact;
+               σ = tanh,
+               initb = glorot_uniform,
+               initb_final = glorot_uniform,
+           ),
+           zeros(dact)
+       )
+```
+"""
 DiagGaussianPolicy(meanNN, logstd) = DiagGaussianPolicy{true}(meanNN, logstd)
 
 
@@ -25,10 +48,26 @@ Flux.trainable(policy::DiagGaussianPolicy{false}) = (meanNN = policy.meanNN,)
 
 (policy::DiagGaussianPolicy)(features) = policy.meanNN(features)
 
+"""
+    getaction!(actions::AbstractVector, policy::DiagGaussianPolicy, features::AbstractVector)
+
+Treats the policy object as a stochastic Gaussian policy and samples from it conditioned on `features`:
+
+    π( actions | features )
+
+The policy object stores the standard deviation of the policy distribution in log form for numerical stability.
+The evaluation of the policy represents the mean of the normal. This function assumes `action` has been populated with N(0, 1) unit normal random samples, which is scaled by the policy's standard deviation and added to it's mean.
+"""
 function getaction!(actions::AbsVec, policy::DiagGaussianPolicy, features::AbsVec)
     actions .= actions .* exp.(policy.logstd) .+ policy(features)
 end
 
+"""
+    loglikelihood(P::DiagGaussianPolicy, feature::AbstractVector, action::AbstractVector)
+
+The loglikelihood of the stochastic policy; calculated for single inputs.
+
+"""
 function loglikelihood(P::DiagGaussianPolicy, feature::AbsVec, action::AbsVec)
     meanact = P(feature)
     ll = -length(P.logstd) * log(2pi) / 2
@@ -39,6 +78,11 @@ function loglikelihood(P::DiagGaussianPolicy, feature::AbsVec, action::AbsVec)
     ll
 end
 
+"""
+    loglikelihood(P::DiagGaussianPolicy, feature::AbstractMatrix, action::AbstractMatrix)
+
+The loglikelihood of the stochastic policy; calculated for multiple inputs in matrix form.
+"""
 function loglikelihood(m::DiagGaussianPolicy, feats::AbsMat, acts::AbsMat)
     constterm = -length(m.logstd) * log(2pi) / 2 - sum(m.logstd)
     meanacts = m(feats)
@@ -53,6 +97,11 @@ function loglikelihood(m::DiagGaussianPolicy, feats::AbsMat, acts::AbsMat)
     dropdims(ll, dims = 1)
 end
 
+"""
+    grad_loglikelihood!(gradll::AbstractVector, m::DiagGaussianPolicy, feat::AbstractVector, act::AbstractVector, ps = params(m))
+
+Calculate the gradient of the policy's log-likelihood for a given singular input. This function in-place writes to an allocated vector `gradll` of length equal to the number of parameters of the policy, including the logstd vector.
+"""
 function grad_loglikelihood!(
     gradll::AbsVec,
     m::DiagGaussianPolicy,
@@ -65,6 +114,13 @@ function grad_loglikelihood!(
     gradll
 end
 
+"""
+    grad_loglikelihood!(gradll::AbstractMatrix, m::DiagGaussianPolicy, feat::AbstractMatrix, act::AbstractMatrix, ps = params(m))
+
+Calculate the gradient of the policy's log-likelihood for input batch. This function in-place writes to an allocated vector `gradll` of length equal to the number of parameters of the policy, including the logstd vector.
+
+This function dispatches multiple threads to evaluate the gradient function. If you have signaled the julia to use mutliple threads, you may experience a speedup.
+"""
 @propagate_inbounds function grad_loglikelihood!(
     gradlls::AbsMat,
     policy::DiagGaussianPolicy,
