@@ -35,8 +35,9 @@ Base.eltype(::Type{<:FVP{T}}) where {T} = T
 Return `op.glls * (tranpose(op.glls) * x)`
 """
 function Base.:*(op::FVP, x::AbstractVector)
-    alpha = op.normalize ? one(eltype(op)) / size(op.glls, 2) : true
-    mmtv(op.glls, x, alpha, cache = op.cache)
+    T = Base.promote_op(*, eltype(op.glls), eltype(x))
+    y = Vector{T}(undef, length(x))
+    mul!(y, op, x)
 end
 
 """
@@ -46,5 +47,6 @@ Update `y` as `op.glls * (transpose(op.glls) * x)`
 """
 function LinearAlgebra.mul!(y::AbstractVector, op::FVP, x::AbstractVector)
     alpha = op.normalize ? one(eltype(op)) / size(op.glls, 2) : true
-    mmtv!(y, op.glls, x, alpha, cache = op.cache)
+    mul!(op.cache, transpose(op.glls), x)
+    mul!(y, op.glls, op.cache, alpha, false)
 end
