@@ -1,9 +1,10 @@
-struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
+struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     envsampler::S
     policy::P
 
     value::V
     valuefit!::VF
+    value_feature_op::VOP
 
     Hmax::Int
     N::Int
@@ -43,7 +44,8 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
         max_cg_iter = 12, # maybe 2 * action dim is a better heuristic?
         cg_tol = 1e-18, # prob something like 1e-9 or 1e-6...
         whiten_advantages = false,
-        bootstrapped_nstep_returns = false
+        bootstrapped_nstep_returns = false,
+        value_feature_op = nothing
     )
 
         0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
@@ -85,12 +87,14 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
             typeof(policy),
             typeof(value),
             typeof(valuefit!),
+            typeof(value_feature_op),
             typeof(stopcb)
         }(
             envsampler,
             policy,
             value,
             valuefit!,
+            value_feature_op,
             Hmax,
             N,
             Nmean,
@@ -144,6 +148,15 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     act_mat     = flatview(actions)
     advantages  = batchlike(rewards, advantages_vec)
     returns     = batchlike(rewards, returns_vec)
+    trajlengths = map(length, rewards)
+
+    if npg.value_feature_op !== nothing
+        feat_mat = npg.value_feature_op(observations)
+        termfeat_mat = npg.value_feature_op(termobs_mat, trajlengths)
+    else
+        feat_mat = obs_mat
+        termfeat_mat = termobs_mat
+    end
 
     # Get baseline and terminal values for the current batch using the last value function
     baseline_vec = dropdims(value(obs_mat), dims = 1)
