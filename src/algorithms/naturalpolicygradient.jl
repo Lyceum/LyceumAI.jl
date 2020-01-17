@@ -159,9 +159,9 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     # Get baseline and terminal values for the current batch using the last value function
-    baseline_vec = dropdims(value(obs_mat), dims = 1)
+    baseline_vec = dropdims(value(feat_mat), dims = 1)
     baseline = batchlike(rewards, baseline_vec)
-    termvals = dropdims(value(termobs_mat), dims = 1)
+    termvals = dropdims(value(termfeat_mat), dims = 1)
 
     # Compute normalized GAE advantages and returns
     GAEadvantages!(advantages, baseline, rewards, termvals, gamma, gaelambda)
@@ -173,7 +173,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     # Fit value function to the current batch
-    elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, obs_mat, returns_vec))
+    elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, feat_mat, returns_vec))
 
     # Compute ∇log π_θ(at | ot)
     elapsed_gradll = @elapsed grad_loglikelihood!(
@@ -181,7 +181,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
                                                   policy,
                                                   obs_mat,
                                                   act_mat,
-                                                  8
+                                                  32
                                                  )
 
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
