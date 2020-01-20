@@ -43,9 +43,9 @@ version = "0.2.5"
 
 [[BangBang]]
 deps = ["Compat", "ConstructionBase", "Future", "InitialValues", "LinearAlgebra", "Requires", "Setfield", "Tables", "ZygoteRules"]
-git-tree-sha1 = "41d2f6149e717513d9361e887a1e6f00b396801e"
+git-tree-sha1 = "4b7b45b36e94d2b7b75b4ef6d165cafadd60843c"
 uuid = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
-version = "0.3.13"
+version = "0.3.14"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -81,9 +81,9 @@ version = "5.0.1"
 
 [[CUDAnative]]
 deps = ["Adapt", "CEnum", "CUDAapi", "CUDAdrv", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "Printf", "TimerOutputs"]
-git-tree-sha1 = "3698d47fa07d91da59984a29ddc7533da3979f70"
+git-tree-sha1 = "ba0725f487fb4a6c63efad7890a659659b6a6754"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
-version = "2.8.0"
+version = "2.8.1"
 
 [[CodecZlib]]
 deps = ["BinaryProvider", "Libdl", "TranscodingStreams"]
@@ -368,15 +368,15 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LyceumBase]]
 deps = ["Adapt", "BenchmarkTools", "Dates", "Distributions", "ElasticArrays", "EllipsisNotation", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "MacroTools", "Parameters", "Pkg", "Random", "Shapes", "StaticArrays", "Statistics", "Test", "TimeZones", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
-git-tree-sha1 = "ead2c7f87eac34745aff097c37883dce06e5f9fa"
+git-tree-sha1 = "ee796da0184c834f6be0f2c92ddaa6c4d1bfda6e"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumBase.jl.git"
 uuid = "db31fed1-ca1e-4084-8a49-12fae1996a55"
 version = "0.1.0"
 
 [[LyceumMuJoCo]]
-deps = ["AxisArrays", "Distances", "Distributions", "LinearAlgebra", "LyceumBase", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "UnsafeArrays"]
-git-tree-sha1 = "40bfc364117f4cbd9875586e326d55621a7316b8"
+deps = ["Distances", "Distributions", "LinearAlgebra", "LyceumBase", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "Statistics", "UnsafeArrays"]
+git-tree-sha1 = "965524ab8c5cd9112e2254ef50ac7c94fa868dce"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumMuJoCo.jl.git"
 uuid = "48b9757e-04b8-4dbf-b6ed-75c13d9e4026"
@@ -654,9 +654,9 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[TimeZones]]
 deps = ["Dates", "EzXML", "Mocking", "Printf", "Serialization", "Unicode"]
-git-tree-sha1 = "29c7ae3f50f291358043e21db47b3e1a516df891"
+git-tree-sha1 = "c91ed6e6576f736da4dc9158e5083f1f3ffd33b6"
 uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
-version = "0.10.3"
+version = "0.10.4"
 
 [[TimerOutputs]]
 deps = ["Printf"]
@@ -860,9 +860,9 @@ version = "1.4.0+0"
 
 [[ZipFile]]
 deps = ["Libdl", "Printf", "Zlib_jll"]
-git-tree-sha1 = "5de8320a46812da1a8ca98b16a8a4546d44efa62"
+git-tree-sha1 = "8748302cfdec02c4ae9c97b112cf10003f7f767f"
 uuid = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
-version = "0.9.0"
+version = "0.9.1"
 
 [[Zlib_jll]]
 deps = ["Libdl", "Pkg"]

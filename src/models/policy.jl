@@ -70,7 +70,7 @@ end
     policy::DiagGaussianPolicy,
     features::AbsMat,
     actions::AbsMat,
-    nthreads::Int = min(32, Threads.nthreads()),
+    nthreads::Int = Threads.nthreads(),
 )
     @boundscheck begin
         if !(axes(gradlls, 2) == axes(features, 2) == axes(actions, 2))

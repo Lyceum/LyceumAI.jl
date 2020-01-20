@@ -181,7 +181,6 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
                                                   policy,
                                                   obs_mat,
                                                   act_mat,
-                                                  32
                                                  )
 
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
