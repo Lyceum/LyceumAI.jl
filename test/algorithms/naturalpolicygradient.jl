@@ -6,23 +6,23 @@
     dobs, dact = length(obsspace(e)), length(actionspace(e))
 
     DT = Float32
-    Hmax, K = 300, 16
+    Hmax, K = 300, 32
     N = Hmax * K
 
     policy = DiagGaussianPolicy(
-        multilayer_perceptron(dobs, 32, 32, dact, σ=tanh),
+        multilayer_perceptron(dobs, 16, 16, dact, σ=tanh),
         zeros(dact)
     )
     policy = Flux.paramtype(DT, policy)
 
-    value = multilayer_perceptron(dobs, 32, 32, 1, σ=Flux.relu)
+    value = multilayer_perceptron(dobs, 16, 16, 1, σ=Flux.relu)
     valueloss(bl, X, Y) = mse(vec(bl(X)), vec(Y))
 
     valuetrainer = FluxTrainer(
-        optimiser = ADAM(1e-2),
+        optimiser = ADAM(5e-3),
         szbatch = 32,
         lossfn = valueloss,
-        stopcb = s->s.nepochs > 4
+        stopcb = s->s.nepochs > 1
     )
     value = Flux.paramtype(DT, value)
 
@@ -30,19 +30,19 @@
         n -> tconstruct(etype, n),
         policy,
         value,
-        gamma = 0.95,
-        gaelambda = 0.99,
+        gamma = 0.9,
+        gaelambda = 0.95,
         valuetrainer,
         Hmax=Hmax,
         norm_step_size=0.05,
         N=N,
     )
 
-    meanterminal_eval = nothing
+    x = Float64[]
     for (i, state) in enumerate(npg)
-        i > 30 && break
-        meanterminal_eval = state.meanterminal_eval
+        i > 50 && break
+        push!(x, state.meanterminal_eval)
+        @info x[end]
     end
-
-    @test meanterminal_eval < 0.1
+    @test mean(x[(end-10):end]) < 0.1
 end
