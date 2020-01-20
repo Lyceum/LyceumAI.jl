@@ -19,10 +19,10 @@
     valueloss(bl, X, Y) = mse(vec(bl(X)), vec(Y))
 
     valuetrainer = FluxTrainer(
-        optimiser = ADAM(5e-3),
+        optimiser = ADAM(1e-3),
         szbatch = 32,
         lossfn = valueloss,
-        stopcb = s->s.nepochs > 1
+        stopcb = s->s.nepochs > 4
     )
     value = Flux.paramtype(DT, value)
 
@@ -42,7 +42,7 @@
     for (i, state) in enumerate(npg)
         i > 50 && break
         push!(x, state.meanterminal_eval)
-        @info x[end]
+        @info (i, x[end])
     end
-    @test mean(x[(end-10):end]) < 0.1
+    @test mean(x[(end-10):end]) < 0.15
 end
