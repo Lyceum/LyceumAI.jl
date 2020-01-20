@@ -206,3 +206,112 @@ function whiten!(x::AbstractArray)
     μ, σ = mean(x), std(x)
     x .= (x .- μ) ./ (σ + eps(eltype(x)))
 end
+
+
+struct TimeFeatures{T}
+    orders::Vector{T}
+    coeffs::Vector{T}
+    timestep::T
+    function TimeFeatures{T}(orders::AbsVec, coeffs::AbsVec, timestep::Real) where {T<:AbstractFloat}
+        if length(orders) != length(coeffs)
+            throw(ArgumentError("length(orders) must equal length(coeffs)"))
+        end
+        timestep > 0 || throw(ArgumentError("timestep must be > 0"))
+
+        orders = convert(Vector{T}, orders)
+        coeffs = convert(Vector{T}, coeffs)
+        timestep = convert(T, timestep)
+
+        new{T}(orders, coeffs, timestep)
+    end
+end
+
+function TimeFeatures(orders::AbsVec, coeffs::AbsVec, timestep::Real)
+    TimeFeatures{Float64}(orders, coeffs, timestep)
+end
+
+function (op::TimeFeatures)(B::AbstractMatrix, A::AbstractMatrix)
+    Base.require_one_based_indexing(B, A)
+    if size(B, 1) != size(A, 1) + length(op.coeffs)
+        throw(DimensionMismatch("size(B, 1) != size(A, 1) + length(op.coeffs)"))
+    end
+    size(B, 2) != size(A, 2) && throw(DimensionMismatch("size(B, 2) != size(A, 2)"))
+
+    T = eltype(B)
+    dimobs, N = size(A)
+    dimfeats = length(op.coeffs)
+    x = (0:(N - 1)) .* op.timestep
+
+    r1 = 1:dimobs
+    r2 = (dimobs + 1):(dimobs + dimfeats)
+
+    for j = axes(B, 2)
+        a = uview(A, :, j)
+        b1 = uview(B, r1, j)
+        b2 = uview(B, r2, j)
+        copyto!(b1, a)
+        for k = 1:dimfeats
+            i = k + dimobs
+            B[i, j] = op.coeffs[k] * x[j]^op.orders[k]
+        end
+    end
+    B
+end
+
+@inline function (op::TimeFeatures{T})(A::AbstractMatrix) where {T}
+    V = promote_type(T, eltype(A))
+    B = Matrix{V}(undef, size(A, 1) + length(op.coeffs), size(A, 2))
+    op(B, A)
+end
+
+# TODO
+# 1) inner_size w/ BatchedVector
+# 2) return BatchedVector{<:NestedView}
+function (op::TimeFeatures{T})(A::AbsVec{<:AbsMat}) where {T}
+    for a in A
+        if size(a, 1) != size(first(A), 1)
+            error("The first axis of each element in A must be equal")
+        end
+    end
+
+    N = sum(a -> size(a, 2), A)
+    dimobs = size(first(A), 1)
+
+    B = Matrix{T}(undef, dimobs + length(op.coeffs), N)
+    from = firstindex(B, 2)
+    for a in A
+        l = size(a, 2)
+        to = from + l - 1
+        b = view(B, :, from:to)
+        op(b, a)
+        from += l
+    end
+    B
+end
+
+@inline function (op::TimeFeatures{T})(A::AbsMat{<:Real}, ts::AbsVec{<:Integer}) where {T}
+    Base.require_one_based_indexing(A, ts)
+    if size(A, 2) != length(ts)
+        throw(DimensionMismatch("size(A, 2) != length(ts)"))
+    end
+
+    dimobs, N = size(A)
+    dimfeats = length(op.coeffs)
+    B = Matrix{T}(undef, dimobs + dimfeats, N)
+
+    r1 = 1:dimobs
+    r2 = (dimobs + 1):(dimobs + dimfeats)
+
+    for j = axes(B, 2)
+        a = uview(A, :, j)
+        b1 = uview(B, r1, j)
+        b2 = uview(B, r2, j)
+        t = (ts[j] - 1) * op.timestep
+        copyto!(b1, a)
+        for k = 1:dimfeats
+            i = k + dimobs
+            B[i, j] = op.coeffs[k] * t^op.orders[k]
+        end
+    end
+    B
+end

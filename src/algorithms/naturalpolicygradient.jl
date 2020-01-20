@@ -1,9 +1,10 @@
-struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
+struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     envsampler::S
     policy::P
 
     value::V
     valuefit!::VF
+    value_feature_op::VOP
 
     Hmax::Int
     N::Int
@@ -43,7 +44,8 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
         max_cg_iter = 12, # maybe 2 * action dim is a better heuristic?
         cg_tol = 1e-18, # prob something like 1e-9 or 1e-6...
         whiten_advantages = false,
-        bootstrapped_nstep_returns = false
+        bootstrapped_nstep_returns = false,
+        value_feature_op = nothing
     )
 
         0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
@@ -85,12 +87,14 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,CB}
             typeof(policy),
             typeof(value),
             typeof(valuefit!),
+            typeof(value_feature_op),
             typeof(stopcb)
         }(
             envsampler,
             policy,
             value,
             valuefit!,
+            value_feature_op,
             Hmax,
             N,
             Nmean,
@@ -120,7 +124,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack advantages_vec, returns_vec = npg
     @unpack fvp_op, cg_op = npg
 
-    meanbatch = @closure sample!(reset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
+    meanbatch = @closure sample!(randreset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
         action .= policy(observation)
     end
     meanbatch = deepcopy(meanbatch) # TODO cxs
@@ -144,11 +148,20 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     act_mat     = flatview(actions)
     advantages  = batchlike(rewards, advantages_vec)
     returns     = batchlike(rewards, returns_vec)
+    trajlengths = map(length, rewards)
+
+    if npg.value_feature_op !== nothing
+        feat_mat = npg.value_feature_op(observations)
+        termfeat_mat = npg.value_feature_op(termobs_mat, trajlengths)
+    else
+        feat_mat = obs_mat
+        termfeat_mat = termobs_mat
+    end
 
     # Get baseline and terminal values for the current batch using the last value function
-    baseline_vec = dropdims(value(obs_mat), dims = 1)
+    baseline_vec = dropdims(value(feat_mat), dims = 1)
     baseline = batchlike(rewards, baseline_vec)
-    termvals = dropdims(value(termobs_mat), dims = 1)
+    termvals = dropdims(value(termfeat_mat), dims = 1)
 
     # Compute normalized GAE advantages and returns
     GAEadvantages!(advantages, baseline, rewards, termvals, gamma, gaelambda)
@@ -160,7 +173,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     # Fit value function to the current batch
-    elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, obs_mat, returns_vec))
+    elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, feat_mat, returns_vec))
 
     # Compute ∇log π_θ(at | ot)
     elapsed_gradll = @elapsed grad_loglikelihood!(
@@ -168,7 +181,6 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
                                                   policy,
                                                   obs_mat,
                                                   act_mat,
-                                                  8
                                                  )
 
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
