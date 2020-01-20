@@ -124,7 +124,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack advantages_vec, returns_vec = npg
     @unpack fvp_op, cg_op = npg
 
-    meanbatch = @closure sample!(reset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
+    meanbatch = @closure sample!(randreset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
         action .= policy(observation)
     end
     meanbatch = deepcopy(meanbatch) # TODO cxs
