@@ -60,5 +60,3 @@ function (cg::CG{T})(x, A, b; tol::Real = sqrt(eps(real(eltype(b)))), maxiter::I
     end
     x
 end
-
-_cg_tol(T::Type) = sqrt(eps(real(T)))

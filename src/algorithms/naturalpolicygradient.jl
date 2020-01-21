@@ -203,7 +203,6 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             #getaction!(action, policy, observation)
         end
     end
-    @warn "YOOOO"
 
     @unpack observations, terminal_observations, actions, rewards, evaluations = batch
     obs_mat     = flatview(observations)
