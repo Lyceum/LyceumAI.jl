@@ -44,8 +44,8 @@ following notation/shorthands:
 - `cg_tol::Real`: Numerical tolerance for Conjugate Gradient convergence.
 - `whiten_advantages::Bool`: if `true`, apply statistical whitening to calculated advantages
     (resulting in `mean(returns) ≈ 0 && std(returns) ≈ 1`).
-- `bootstrapped_nstep_returns::Bool`: if `true`, bootstrap the returns calculation using
-    `value(terminal_observation)`. See the source code or "Reinforcement Learning" by
+- `bootstrapped_nstep_returns::Bool`: if `true`, bootstrap the returns calculation starting
+    `value(terminal_observation)` instead of 0. See "Reinforcement Learning" by
     Sutton & Barto for further information.
 - `value_feature_op`: a function with the below signatures that transforms environment
     observations to a set of "features" to be consumed by `value` and `valuefit!`:
@@ -67,7 +67,7 @@ For some continuous control tasks, one may consider the following notes when app
 2) `Hmax` needs to be sufficiently long for the correct behavior to emerge; `N` needs to be
     sufficiently large that the agent samples useful data. They may also be surprisingly
     small for simple tasks. These parameters are the main tunables when applying `NaturalPolicyGradient`.
-3) One might consider the `norm_step_size` and `max_cg_iter` paramters as the next most
+3) One might consider the `norm_step_size` and `max_cg_iter` parameters as the next most
     important when initially testing `NaturalPolicyGradient` on new tasks, assuming `Hmax` and `N` are
     appropriately chosen for the task. `gamma` has interaction with `Hmax`,
     while the default value for `gaelambda` has been empirically found to be stable for a
@@ -108,11 +108,6 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,VOP}
 
 end
 
-function NaturalPolicyGradient(env_tconstructor, policy, value, args...; kwargs)
-    DT = promote_modeltype(policy, value)
-    NaturalPolicyGradient{DT}(env_tconstructor, policy, value, args...; kwargs...)
-end
-
 function NaturalPolicyGradient{DT}(
     env_tconstructor,
     policy,
@@ -125,12 +120,17 @@ function NaturalPolicyGradient{DT}(
     gamma::Real = 0.995,
     gaelambda::Real = 0.98,
     max_cg_iter::Maybe{Integer} = nothing,
-    cg_tol::Real = 1e-18, # prob something like 1e-9 or 1e-6...
+    cg_tol = sqrt(eps(real(DT))),
     whiten_advantages::Bool = false,
     bootstrapped_nstep_returns::Bool = false,
     value_feature_op = nothing
 ) where {DT <: AbstractFloat}
+    e = first(env_tconstructor(1))
 
+    max_cg_iter === nothing && (max_cg_iter = 2 * length(actionspace(e)))
+    np = nparams(policy)
+
+    0 < np || throw(ArgumentError("policy has no parameters"))
     0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
     0 < N || throw(ArgumentError("N must be > 0"))
     0 < Nmean <= N || throw(ArgumentError("Nmean must be in interval (0, N]"))
@@ -139,26 +139,10 @@ function NaturalPolicyGradient{DT}(
     0 < gaelambda <= 1 || throw(ArgumentError("gaelambda must be in interval (0, 1]"))
     0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
     0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
-    hasmethod(
-        valuefit!,
-        (typeof(value), Matrix, Vector),
-    ) || throw(ArgumentError("valuefit! must have signature: (value, Matrix, Vector)"))
-
-    np = nparams(policy)
-    0 < np || throw(ArgumentError("policy has no parameters"))
-
-    if !isconcretetype(DT)
-        DTnew = Shapes.default_datatype(DT)
-        @warn "Could not infer model element type. Defaulting to $DTnew"
-        DT = DTnew
-    end
-
-    e = first(env_tconstructor(1))
-    envsampler = EnvSampler(env_tconstructor, dtype=DT)
-
-    max_cg_iter === nothing && (max_cg_iter = 2 * length(actionspace(e)))
 
     z(d...) = zeros(DT, d...)
+
+    envsampler = EnvSampler(env_tconstructor, dtype=DT)
     fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
     cg_op = CG{DT}(np, N)
 
@@ -187,32 +171,12 @@ function NaturalPolicyGradient{DT}(
     )
 end
 
+function NaturalPolicyGradient(env_tconstructor, policy, value, args...; kwargs...)
+    DT = promote_modeltype(policy, value)
+    NaturalPolicyGradient{DT}(env_tconstructor, policy, value, args...; kwargs...)
+end
 
-"""
-    Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
-Iterator function for the NaturalPolicyGradient struct.
-
-# Example that assumes policy and value functions have been constructed
-```julia-repl
-julia> npg = NaturalPolicyGradient(
-        (i) -> tconstructor(env, i),
-        policy,
-        value,
-        valuefit!)
-julia> for (i, state) in enumerate(npg)
-          if i >= 200
-             break # Iterates the `NaturalPolicyGradient` algorithm 200 times.
-          end
-       end
-
-julia> state, i = iterate(npg, 1) # runs one step of the algorithm, returning state
-```
-
-See for more details:
-Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
-https://arxiv.org/pdf/1703.02660.pdf
-"""
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
     @unpack vanilla_pg, natural_pg = npg
