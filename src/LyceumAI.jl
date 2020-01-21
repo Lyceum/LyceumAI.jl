@@ -5,6 +5,7 @@ using Random, Statistics, LinearAlgebra
 
 # 3rd party
 import LearnBase
+using DocStringExtensions
 import Flux: params, params!
 import Flux.Optimise: update!
 using UnsafeArrays,
@@ -57,7 +58,6 @@ const AbsVec = AbstractVector
 const AbsMat = AbstractMatrix
 
 infinitecb(x...) = false
-
 
 
 abstract type AbstractModel{T} end

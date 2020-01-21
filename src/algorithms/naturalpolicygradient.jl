@@ -1,6 +1,41 @@
-"""
+struct NaturalPolicyGradient{DT,S,P,V,VF,VOP}
+    envsampler::S
+    policy::P
 
+    value::V
+    valuefit!::VF
+    value_feature_op::VOP
+
+    Hmax::Int
+    N::Int
+    Nmean::Int
+
+    norm_step_size::DT
+    gamma::DT
+    gaelambda::DT
+    whiten_advantages::Bool
+    bootstrapped_nstep_returns::Bool
+
+    max_cg_iter::Int
+    cg_tol::DT
+
+    vanilla_pg::Vector{DT} # nparams
+    natural_pg::Vector{DT} # nparams
+
+    fvp_op::FVP{DT, Array{DT, 2}}
+    cg_op::CG{DT}
+
+    advantages_vec::Vector{DT} # N
+    returns_vec::Vector{DT} # N
+
+end
+
+"""
+    NaturalPolicyGradient{DT<:AbstractFloat}(args...; kwargs...) -> NaturalPolicyGradient
     NaturalPolicyGradient(args...; kwargs...) -> NaturalPolicyGradient
+
+Construct a `NaturalPolicyGradient` with `args` and `kwargs` using `DT <: AbstractFloat` as
+the element type for pre-allocated buffers, which defaults to Float64.
 
 In the following explanation of the `NaturalPolicyGradient` constructor, we use the
 following notation/shorthands:
@@ -76,38 +111,6 @@ For some continuous control tasks, one may consider the following notes when app
 For more details, see Algorithm 1 in
 [Towards Generalization and Simplicity in Continuous Control](https://arxiv.org/pdf/1703.02660.pdf).
 """
-struct NaturalPolicyGradient{DT,S,P,V,VF,VOP}
-    envsampler::S
-    policy::P
-
-    value::V
-    valuefit!::VF
-    value_feature_op::VOP
-
-    Hmax::Int
-    N::Int
-    Nmean::Int
-
-    norm_step_size::DT
-    gamma::DT
-    gaelambda::DT
-    whiten_advantages::Bool
-    bootstrapped_nstep_returns::Bool
-
-    max_cg_iter::Int
-    cg_tol::DT
-
-    vanilla_pg::Vector{DT} # nparams
-    natural_pg::Vector{DT} # nparams
-
-    fvp_op::FVP{DT, Array{DT, 2}}
-    cg_op::CG{DT}
-
-    advantages_vec::Vector{DT} # N
-    returns_vec::Vector{DT} # N
-
-end
-
 function NaturalPolicyGradient{DT}(
     env_tconstructor,
     policy,
@@ -171,9 +174,8 @@ function NaturalPolicyGradient{DT}(
     )
 end
 
-function NaturalPolicyGradient(env_tconstructor, policy, value, args...; kwargs...)
-    DT = promote_modeltype(policy, value)
-    NaturalPolicyGradient{DT}(env_tconstructor, policy, value, args...; kwargs...)
+function NaturalPolicyGradient(args...; kwargs...)
+    NaturalPolicyGradient{Float64}(args...; kwargs...)
 end
 
 
