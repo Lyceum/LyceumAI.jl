@@ -1,4 +1,82 @@
-struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
+"""
+
+    NaturalPolicyGradient(args...; kwargs...) -> NaturalPolicyGradient
+
+In the following explanation of the `NaturalPolicyGradient` constructor, we use the
+following notation/shorthands:
+- `dim_o = length(obsspace(env))`
+- `dim_a = length(actionspace(env))`
+- "terminal" (e.g. terminal observation) refers to timestep `T + 1` for a length `T` trajectory.
+
+# Arguments
+
+- `env_tconstructor`: a function with signature `env_tconstructor(n)` that returns `n`
+    instances of `T`, where `T <: AbstractEnvironment`.
+- `policy`: a function mapping observations to actions, with the following signatures:
+    - `policy(obs::AbstractVector)` --> `action::AbstractVector`,
+        where `size(obs) == (dim_o, )` and `size(action) == (dim_a, )`.
+    - `policy(obs::AbstractMatrix)` --> `action::AbstractMatrix`,
+        where `size(obs) == (dim_o, N)` and `size(action) == (dim_a, N)`.
+- `value`: a function mapping observations to scalar rewards, with the following signatures:
+    - `value(obs::AbstractVector)` --> `reward::AbstractVector`,
+        where `size(obs) == (dim_o, )` and `size(reward) == (1, )`.
+    - `value(obs::AbstractMatrix)` --> `reward::AbstractVector`,
+        where `size(obs) == (dim_o, N)` and `size(reward) == (1, N)`.
+- `valuefit!`: a function with signature `valuefit!(value, obs::AbstractMatrix, returns::AbstractVector)`,
+    where `size(obs) == (dim_o, N)` and `size(returns) == (1, N)`, that fits `value` to
+    `obs` and `returns`.
+
+# Keywords
+
+- `Hmax::Integer`: Maximum trajectory length for environments rollouts.
+- `N::Integer`: Total number of data samples used for each policy gradient step.
+- `Nmean::Integer`: Total number of data samples for the mean policy (without stochastic
+    noise). Mean rollouts are used for evaluating `policy` and not used to improve `policy`
+    in any form.
+- `norm_step_size::Real`: Scaling for the applied gradient update after gradient normalization
+    has occured. This process makes training much more stable to step sizes;
+    see equation 5 in [this paper](https://arxiv.org/pdf/1703.02660.pdf) for more details.
+- `gamma::Real`: Reward discount, applied as `gamma^(t - 1) * reward[t]`.
+- `gaelambda::Real`: Generalized Advantage Estimate parameter, balances bias and variance when
+    computing advantages. See [this paper](https://arxiv.org/pdf/1506.02438.pdf) for details.
+- `max_cg_iter::Integer`: Maximum number of Conjugate Gradient iterations when estimating
+    `natural_gradient = alpha * inv(FIM) * gradient`, where `FIM` is the Fisher Information Matrix.
+- `cg_tol::Real`: Numerical tolerance for Conjugate Gradient convergence.
+- `whiten_advantages::Bool`: if `true`, apply statistical whitening to calculated advantages
+    (resulting in `mean(returns) ≈ 0 && std(returns) ≈ 1`).
+- `bootstrapped_nstep_returns::Bool`: if `true`, bootstrap the returns calculation using
+    `value(terminal_observation)`. See the source code or "Reinforcement Learning" by
+    Sutton & Barto for further information.
+- `value_feature_op`: a function with the below signatures that transforms environment
+    observations to a set of "features" to be consumed by `value` and `valuefit!`:
+    - `value_feature_op(observations::AbstractVector{<:AbstractMatrix}) --> AbstractMatrix`
+    - `value_feature_op(terminal_observations::AbstractMatrix, trajlengths::Vector{<:Integer}) --> AbstractMatrix`,
+        where `observations` is a vector of observations from each trajectory,
+        `terminal_observations` has size `(dim_o, number_of_trajectories)`, and `trajlengths`
+        contains the lengths of each trajectory
+        (such that `trajlengths[i] == size(observations[i], 2)`).
+
+
+For some continuous control tasks, one may consider the following notes when applying
+`NaturalPolicyGradient` to new tasks and environments:
+
+1) For two policies that both learn to complete a task satisfactorially, the larger one
+    may not perform significantly better. A minimum amount of representational power is
+    necessary, but larger networks may not offer quantitative benefits. The same goes for
+    the value function approximator.
+2) `Hmax` needs to be sufficiently long for the correct behavior to emerge; `N` needs to be
+    sufficiently large that the agent samples useful data. They may also be surprisingly
+    small for simple tasks. These parameters are the main tunables when applying `NaturalPolicyGradient`.
+3) One might consider the `norm_step_size` and `max_cg_iter` paramters as the next most
+    important when initially testing `NaturalPolicyGradient` on new tasks, assuming `Hmax` and `N` are
+    appropriately chosen for the task. `gamma` has interaction with `Hmax`,
+    while the default value for `gaelambda` has been empirically found to be stable for a
+    wide range of tasks.
+
+For more details, see Algorithm 1 in
+[Towards Generalization and Simplicity in Continuous Control](https://arxiv.org/pdf/1703.02660.pdf).
+"""
+struct NaturalPolicyGradient{DT,S,P,V,VF,VOP}
     envsampler::S
     policy::P
 
@@ -9,7 +87,6 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     Hmax::Int
     N::Int
     Nmean::Int
-    stopcb::CB
 
     norm_step_size::DT
     gamma::DT
@@ -29,135 +106,87 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     advantages_vec::Vector{DT} # N
     returns_vec::Vector{DT} # N
 
-    @doc """
+end
 
-        NaturalPolicyGradient( env_tconstructor, policy, value, valuefit!)
+function NaturalPolicyGradient(env_tconstructor, policy, value, args...; kwargs)
+    DT = promote_modeltype(policy, value)
+    NaturalPolicyGradient{DT}(env_tconstructor, policy, value, args...; kwargs...)
+end
 
-    Constructor for NPG algorithm struct, with parameters below:
+function NaturalPolicyGradient{DT}(
+    env_tconstructor,
+    policy,
+    value,
+    valuefit!;
+    Hmax::Integer = 1024,
+    N::Integer = 10 * Hmax,
+    Nmean::Integer = min(3*Hmax, N),
+    norm_step_size::Real = 0.05,
+    gamma::Real = 0.995,
+    gaelambda::Real = 0.98,
+    max_cg_iter::Maybe{Integer} = nothing,
+    cg_tol::Real = 1e-18, # prob something like 1e-9 or 1e-6...
+    whiten_advantages::Bool = false,
+    bootstrapped_nstep_returns::Bool = false,
+    value_feature_op = nothing
+) where {DT <: AbstractFloat}
 
-        env_tconstructor = expects function of an int i, returns i instances of environment
-        policy           = policy function that accepts observations, [ obssize x n ], and returns [ ctrlsize x n ] action vectors. See LyceumAI.jl/src/models/policy.jl for policy structs.
-        value            = similar to policy but represents the estimated value for a given observation [ obssize x n ] and returns [ 1 x n ] values.
-        valuefit!        = function with signature valuefit!(value, obs_mat, returns_vec) that fits the above value function to data; see LyceumAI.jl/src/flux.jl for FluxTrainer example.
+    0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
+    0 < N || throw(ArgumentError("N must be > 0"))
+    0 < Nmean <= N || throw(ArgumentError("Nmean must be in interval (0, N]"))
+    0 < norm_step_size || throw(ArgumentError("norm_step_size must be > 0"))
+    0 < gamma <= 1 || throw(ArgumentError("gamma must be in interval (0, 1]"))
+    0 < gaelambda <= 1 || throw(ArgumentError("gaelambda must be in interval (0, 1]"))
+    0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
+    0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
+    hasmethod(
+        valuefit!,
+        (typeof(value), Matrix, Vector),
+    ) || throw(ArgumentError("valuefit! must have signature: (value, Matrix, Vector)"))
 
-        Hmax                       = Maximum Length of a sample Trajectory
-        N                          = Total number of data samples used for each policy gradient step
-        Nmean                      = Total number of data samples for the mean policy (without stochastic noise)
-        stopcb                     = A callback to signal when to break out of iteration
-        norm_step_size             = Scaling for weighing the applied gradient update after gradient normalization has occured. This process makes training much more stable to step sizes; see equation 5 in https://arxiv.org/pdf/1703.02660.pdf for more details
-        gamma                      = Reward discount, applied as `for t = 1:Hmax ( gamma^(t-1) * reward[t] ) end`
-        gaelambda                  = Generalized Advantage Estimate parameter, balances bias and variance comparing current reward with value function estimate. See https://arxiv.org/pdf/1506.02438.pdf for details.
-        max_cg_iter                = Conjugate Gradient is used to estimate the inverse Fisher * gradient computation; this is the number of iterations to use
-        cg_tol                     = The numerical tolerance used to break out of the CG loop
-        whiten_advantages          = Boolean flag for whether to apply statistical whitening to calculated advantages (resulting in zero mean, 1 stdev data)
-        bootstrapped_nstep_returns = Boolean flag controls the return calculation for the terminal state of a rollout trajectory
+    np = nparams(policy)
+    0 < np || throw(ArgumentError("policy has no parameters"))
 
+    if !isconcretetype(DT)
+        DTnew = Shapes.default_datatype(DT)
+        @warn "Could not infer model element type. Defaulting to $DTnew"
+        DT = DTnew
+    end
 
-    For some continuous control tasks, one may consider the following notes and "anecdata" when applying NPG to new tasks and environments:
+    e = first(env_tconstructor(1))
+    envsampler = EnvSampler(env_tconstructor, dtype=DT)
 
-    1) For two policies that both learn to complete a task satisfactorially, the larger one may not perform significantly better. A minimum amount of representational power is necessary, but larger networks may not offer quantitative benefits. The same goes for the value function approximator.
-    2) Hmax needs to be sufficiently long for the correct behavior to emerge; N needs to be sufficiently large that the agent samples useful data. They may also be surprisingly small for simple tasks. These parameters are the main tunables when applying NPG.
-    3) One might consider the norm_step_size and max_cg_iter paramters as the next most important when initially testing NPG on new tasks, assuming Hmax and N are appropriately chosen for the task. gamma has interaction with Hmax, while gaelambda's default has been empirically found to be stable for a wide range of tasks.
+    max_cg_iter === nothing && (max_cg_iter = 2 * length(actionspace(e)))
 
-    # Example that assumes policy and value functions have been constructed
-    ```julia-repl
-    julia> npg = NaturalPolicyGradient(
-              (i) -> tconstructor(env, i),
-              policy,
-              value,
-              valuefit!)
-    ```
+    z(d...) = zeros(DT, d...)
+    fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
+    cg_op = CG{DT}(np, N)
 
-    See for more details:
-    Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
-    https://arxiv.org/pdf/1703.02660.pdf
-    """
-    function NaturalPolicyGradient(
-        env_tconstructor,
+    NaturalPolicyGradient(
+        envsampler,
         policy,
         value,
-        valuefit!;
-        Hmax = 100,
-        N = 5120,
-        Nmean = max(Hmax*2, N),
-        stopcb = infinitecb,
-        norm_step_size = 0.05,
-        gamma = 0.995,
-        gaelambda = 0.98,
-        max_cg_iter = 12, # maybe 2 * action dim is a better heuristic?
-        cg_tol = 1e-18, # prob something like 1e-9 or 1e-6...
-        whiten_advantages = false,
-        bootstrapped_nstep_returns = false,
-        value_feature_op = nothing
+        valuefit!,
+        value_feature_op,
+        Hmax,
+        N,
+        Nmean,
+        DT(norm_step_size),
+        DT(gamma),
+        DT(gaelambda),
+        whiten_advantages,
+        bootstrapped_nstep_returns,
+        max_cg_iter,
+        DT(cg_tol),
+        z(np),
+        z(np),
+        fvp_op,
+        cg_op,
+        z(N),
+        z(N)
     )
-
-        0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
-        0 < N || throw(ArgumentError("N must be > 0"))
-        0 < Nmean <= N || throw(ArgumentError("Nmean must be in interval (0, N]"))
-        0 < norm_step_size || throw(ArgumentError("norm_step_size must be > 0"))
-        0 < gamma <= 1 || throw(ArgumentError("gamma must be in interval (0, 1]"))
-        0 < gaelambda <= 1 || throw(ArgumentError("gaelambda must be in interval (0, 1]"))
-        0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
-        0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
-        hasmethod(
-            valuefit!,
-            (typeof(value), Matrix, Vector),
-        ) || throw(ArgumentError("valuefit! must have signature: (value, Matrix, Vector)"))
-        hasmethod(
-            stopcb,
-            (NamedTuple,),
-        ) || throw(ArgumentError("stopcb must have signature: (NamedTuple)"))
-
-        np = nparams(policy)
-        0 < np || throw(ArgumentError("policy has no parameters"))
-
-        DT = promote_modeltype(policy, value)
-        if !isconcretetype(DT)
-            DTnew = Shapes.default_datatype(DT)
-            @warn "Could not infer model element type. Defaulting to $DTnew"
-            DT = DTnew
-        end
-
-        envsampler = EnvSampler(env_tconstructor, dtype=DT)
-
-        z(d...) = zeros(DT, d...)
-        fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
-        cg_op = CG{DT}(np, N)
-
-        new{
-            DT,
-            typeof(envsampler),
-            typeof(policy),
-            typeof(value),
-            typeof(valuefit!),
-            typeof(value_feature_op),
-            typeof(stopcb)
-        }(
-            envsampler,
-            policy,
-            value,
-            valuefit!,
-            value_feature_op,
-            Hmax,
-            N,
-            Nmean,
-            stopcb,
-            DT(norm_step_size),
-            DT(gamma),
-            DT(gaelambda),
-            whiten_advantages,
-            bootstrapped_nstep_returns,
-            max_cg_iter,
-            DT(cg_tol),
-            z(np),
-            z(np),
-            fvp_op,
-            cg_op,
-            z(N),
-            z(N)
-        )
-    end
 end
+
 
 """
     Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
@@ -173,7 +202,7 @@ julia> npg = NaturalPolicyGradient(
         valuefit!)
 julia> for (i, state) in enumerate(npg)
           if i >= 200
-             break # Iterates the NPG algorithm 200 times.
+             break # Iterates the `NaturalPolicyGradient` algorithm 200 times.
           end
        end
 

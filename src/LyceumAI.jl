@@ -21,7 +21,7 @@ using UnsafeArrays,
       LyceumBase
 
 # Lyceum
-import LyceumBase: getaction!
+import LyceumBase: getaction!, Maybe
 using LyceumBase.Tools
 using LyceumBase.Tools: zerofn, noop
 
