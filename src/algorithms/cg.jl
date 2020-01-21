@@ -8,7 +8,7 @@ struct CG{T <: AbstractFloat}
 end
 CG{T}(dims_A::Dims{2}) where {T} = CG{T}(dims_A...)
 
-function (cg::CG{T})(x, A, b; tol::Real = sqrt(eps(real((eltype(b))))), maxiter::Int = size(A, 2), initiallyzero::Bool = false) where {T}
+function (cg::CG{T})(x, A, b; tol::Real = sqrt(eps(real(eltype(b)))), maxiter::Int = size(A, 2), initiallyzero::Bool = false) where {T}
     if !(T == eltype(x) == eltype(A) == eltype(b))
         @warn "eltype mismatch: expected x, A, and b to have eltype $T. CG may run slower as a result" maxlog=1
         error()

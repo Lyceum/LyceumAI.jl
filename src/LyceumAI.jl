@@ -1,7 +1,9 @@
 module LyceumAI
 
 # stdlib
-using Random, Statistics, LinearAlgebra
+using Random
+using Random: default_rng
+using Statistics, LinearAlgebra
 
 # 3rd party
 import LearnBase
@@ -25,6 +27,7 @@ using UnsafeArrays,
 import LyceumBase: getaction!, Maybe
 using LyceumBase.Tools
 using LyceumBase.Tools: zerofn, noop
+import LyceumBase.Tools: sample!
 
 using Zygote: Params, Grads
 using Base: promote_eltype, @propagate_inbounds, require_one_based_indexing

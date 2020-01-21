@@ -449,7 +449,7 @@ version = "0.7.0"
 
 [[MuJoCo]]
 deps = ["AxisArrays", "BangBang", "Base64", "CEnum", "LinearAlgebra", "MacroTools", "MuJoCo_jll", "Reexport", "StaticArrays", "UnsafeArrays"]
-git-tree-sha1 = "f3db7f65558508cc8cd15abee8c52fa0dfe639a5"
+git-tree-sha1 = "1fba323c489b6435c788182e20ce25824ea4bfb0"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/MuJoCo.jl.git"
 uuid = "93189219-7048-461c-94ec-443a161ed927"

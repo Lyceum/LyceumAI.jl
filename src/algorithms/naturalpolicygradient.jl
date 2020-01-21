@@ -198,10 +198,12 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             N,
             Hmax = Hmax,
         ) do action, state, observation
-            randn!(action) # TODO noise buffer for better determinism
-            getaction!(action, policy, observation)
+            #randn!(action) # TODO noise buffer for better determinism
+            sample!(action, policy, observation)
+            #getaction!(action, policy, observation)
         end
     end
+    @warn "YOOOO"
 
     @unpack observations, terminal_observations, actions, rewards, evaluations = batch
     obs_mat     = flatview(observations)
