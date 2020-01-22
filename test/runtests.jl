@@ -30,6 +30,13 @@ end
 @testset "LyceumAI.jl" begin
     seed_threadrngs!(1)
 
+    @info Sys.cpu_info()
+    println("--------")
+    println("--------")
+    Sys.cpu_summary()
+    error()
+
+
     @testset "algorithms" begin
         include("algorithms/MPPI.jl")
         include("algorithms/naturalpolicygradient.jl")
