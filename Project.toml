@@ -6,7 +6,6 @@ version = "0.1.0"
 [deps]
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 FastClosures = "9aa1b823-49e4-5ca5-8b0f-3971ec8bab6a"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"

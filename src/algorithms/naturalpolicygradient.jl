@@ -1,4 +1,4 @@
-struct NaturalPolicyGradient{DT<:AbstractFloat,S,P,V,VF,VOP}
+struct NaturalPolicyGradient{DT,S,P,V,VF,VOP,CB}
     envsampler::S
     policy::P
 
@@ -9,6 +9,7 @@ struct NaturalPolicyGradient{DT<:AbstractFloat,S,P,V,VF,VOP}
     Hmax::Int
     N::Int
     Nmean::Int
+    stopcb::CB
 
     norm_step_size::DT
     gamma::DT
@@ -27,154 +28,96 @@ struct NaturalPolicyGradient{DT<:AbstractFloat,S,P,V,VF,VOP}
 
     advantages_vec::Vector{DT} # N
     returns_vec::Vector{DT} # N
-end
 
-"""
-    NaturalPolicyGradient{DT<:AbstractFloat}(args...; kwargs...) -> NaturalPolicyGradient
-    NaturalPolicyGradient(args...; kwargs...) -> NaturalPolicyGradient
-
-Construct a `NaturalPolicyGradient` with `args` and `kwargs` using `DT <: AbstractFloat` as
-the element type for pre-allocated buffers, which defaults to Float32.
-
-In the following explanation of the `NaturalPolicyGradient` constructor, we use the
-following notation/shorthands:
-- `dim_o = length(obsspace(env))`
-- `dim_a = length(actionspace(env))`
-- "terminal" (e.g. terminal observation) refers to timestep `T + 1` for a length `T` trajectory.
-
-# Arguments
-
-- `env_tconstructor`: a function with signature `env_tconstructor(n)` that returns `n`
-    instances of `T`, where `T <: AbstractEnvironment`.
-- `policy`: a function mapping observations to actions, with the following signatures:
-    - `policy(obs::AbstractVector)` --> `action::AbstractVector`,
-        where `size(obs) == (dim_o, )` and `size(action) == (dim_a, )`.
-    - `policy(obs::AbstractMatrix)` --> `action::AbstractMatrix`,
-        where `size(obs) == (dim_o, N)` and `size(action) == (dim_a, N)`.
-- `value`: a function mapping observations to scalar rewards, with the following signatures:
-    - `value(obs::AbstractVector)` --> `reward::AbstractVector`,
-        where `size(obs) == (dim_o, )` and `size(reward) == (1, )`.
-    - `value(obs::AbstractMatrix)` --> `reward::AbstractVector`,
-        where `size(obs) == (dim_o, N)` and `size(reward) == (1, N)`.
-- `valuefit!`: a function with signature `valuefit!(value, obs::AbstractMatrix, returns::AbstractVector)`,
-    where `size(obs) == (dim_o, N)` and `size(returns) == (1, N)`, that fits `value` to
-    `obs` and `returns`.
-
-# Keywords
-
-- `Hmax::Integer`: Maximum trajectory length for environments rollouts.
-- `N::Integer`: Total number of data samples used for each policy gradient step.
-- `Nmean::Integer`: Total number of data samples for the mean policy (without stochastic
-    noise). Mean rollouts are used for evaluating `policy` and not used to improve `policy`
-    in any form.
-- `norm_step_size::Real`: Scaling for the applied gradient update after gradient normalization
-    has occured. This process makes training much more stable to step sizes;
-    see equation 5 in [this paper](https://arxiv.org/pdf/1703.02660.pdf) for more details.
-- `gamma::Real`: Reward discount, applied as `gamma^(t - 1) * reward[t]`.
-- `gaelambda::Real`: Generalized Advantage Estimate parameter, balances bias and variance when
-    computing advantages. See [this paper](https://arxiv.org/pdf/1506.02438.pdf) for details.
-- `max_cg_iter::Integer`: Maximum number of Conjugate Gradient iterations when estimating
-    `natural_gradient = alpha * inv(FIM) * gradient`, where `FIM` is the Fisher Information Matrix.
-- `cg_tol::Real`: Numerical tolerance for Conjugate Gradient convergence.
-- `whiten_advantages::Bool`: if `true`, apply statistical whitening to calculated advantages
-    (resulting in `mean(returns) ≈ 0 && std(returns) ≈ 1`).
-- `bootstrapped_nstep_returns::Bool`: if `true`, bootstrap the returns calculation starting
-    `value(terminal_observation)` instead of 0. See "Reinforcement Learning" by
-    Sutton & Barto for further information.
-- `value_feature_op`: a function with the below signatures that transforms environment
-    observations to a set of "features" to be consumed by `value` and `valuefit!`:
-    - `value_feature_op(observations::AbstractVector{<:AbstractMatrix}) --> AbstractMatrix`
-    - `value_feature_op(terminal_observations::AbstractMatrix, trajlengths::Vector{<:Integer}) --> AbstractMatrix`,
-        where `observations` is a vector of observations from each trajectory,
-        `terminal_observations` has size `(dim_o, number_of_trajectories)`, and `trajlengths`
-        contains the lengths of each trajectory
-        (such that `trajlengths[i] == size(observations[i], 2)`).
-
-
-For some continuous control tasks, one may consider the following notes when applying
-`NaturalPolicyGradient` to new tasks and environments:
-
-1) For two policies that both learn to complete a task satisfactorially, the larger one
-    may not perform significantly better. A minimum amount of representational power is
-    necessary, but larger networks may not offer quantitative benefits. The same goes for
-    the value function approximator.
-2) `Hmax` needs to be sufficiently long for the correct behavior to emerge; `N` needs to be
-    sufficiently large that the agent samples useful data. They may also be surprisingly
-    small for simple tasks. These parameters are the main tunables when applying `NaturalPolicyGradient`.
-3) One might consider the `norm_step_size` and `max_cg_iter` parameters as the next most
-    important when initially testing `NaturalPolicyGradient` on new tasks, assuming `Hmax` and `N` are
-    appropriately chosen for the task. `gamma` has interaction with `Hmax`,
-    while the default value for `gaelambda` has been empirically found to be stable for a
-    wide range of tasks.
-
-For more details, see Algorithm 1 in
-[Towards Generalization and Simplicity in Continuous Control](https://arxiv.org/pdf/1703.02660.pdf).
-"""
-function NaturalPolicyGradient{DT}(
-    env_tconstructor,
-    policy,
-    value,
-    valuefit!;
-    Hmax::Integer = 1024,
-    N::Integer = 10 * Hmax,
-    Nmean::Integer = min(3*Hmax, N),
-    norm_step_size::Real = 0.05,
-    gamma::Real = 0.995,
-    gaelambda::Real = 0.98,
-    max_cg_iter::Integer = 15,
-    cg_tol::Real = sqrt(eps(real(DT))),
-    whiten_advantages::Bool = false,
-    bootstrapped_nstep_returns::Bool = false,
-    value_feature_op = nothing
-) where {DT <: AbstractFloat}
-    e = first(env_tconstructor(1))
-    np = nparams(policy)
-    z(d...) = zeros(DT, d...)
-
-    0 < np || throw(ArgumentError("policy has no parameters"))
-    0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
-    0 < N || throw(ArgumentError("N must be > 0"))
-    0 < Nmean <= N || throw(ArgumentError("Nmean must be in interval (0, N]"))
-    0 < norm_step_size || throw(ArgumentError("norm_step_size must be > 0"))
-    0 < gamma <= 1 || throw(ArgumentError("gamma must be in interval (0, 1]"))
-    0 < gaelambda <= 1 || throw(ArgumentError("gaelambda must be in interval (0, 1]"))
-    0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
-    0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
-
-    envsampler = EnvSampler(env_tconstructor, dtype=DT)
-    fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
-    cg_op = CG{DT}(np, N)
-
-    NaturalPolicyGradient(
-        envsampler,
+    function NaturalPolicyGradient(
+        env_tconstructor,
         policy,
         value,
-        valuefit!,
-        value_feature_op,
-        Hmax,
-        N,
-        Nmean,
-        DT(norm_step_size),
-        DT(gamma),
-        DT(gaelambda),
-        whiten_advantages,
-        bootstrapped_nstep_returns,
-        max_cg_iter,
-        DT(cg_tol),
-        z(np),
-        z(np),
-        fvp_op,
-        cg_op,
-        z(N),
-        z(N)
+        valuefit!;
+        Hmax = 100,
+        N = 5120,
+        Nmean = max(Hmax*2, N),
+        stopcb = infinitecb,
+        norm_step_size = 0.05,
+        gamma = 0.995,
+        gaelambda = 0.98,
+        max_cg_iter = 12, # maybe 2 * action dim is a better heuristic?
+        cg_tol = 1e-18, # prob something like 1e-9 or 1e-6...
+        whiten_advantages = false,
+        bootstrapped_nstep_returns = false,
+        value_feature_op = nothing
     )
+
+        0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
+        0 < N || throw(ArgumentError("N must be > 0"))
+        0 < Nmean <= N || throw(ArgumentError("Nmean must be in interval (0, N]"))
+        0 < norm_step_size || throw(ArgumentError("norm_step_size must be > 0"))
+        0 < gamma <= 1 || throw(ArgumentError("gamma must be in interval (0, 1]"))
+        0 < gaelambda <= 1 || throw(ArgumentError("gaelambda must be in interval (0, 1]"))
+        0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
+        0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
+        hasmethod(
+            valuefit!,
+            (typeof(value), Matrix, Vector),
+        ) || throw(ArgumentError("valuefit! must have signature: (value, Matrix, Vector)"))
+        hasmethod(
+            stopcb,
+            (NamedTuple,),
+        ) || throw(ArgumentError("stopcb must have signature: (NamedTuple)"))
+
+        np = nparams(policy)
+        0 < np || throw(ArgumentError("policy has no parameters"))
+
+        DT = promote_modeltype(policy, value)
+        if !isconcretetype(DT)
+            DTnew = Shapes.default_datatype(DT)
+            @warn "Could not infer model element type. Defaulting to $DTnew"
+            DT = DTnew
+        end
+
+        envsampler = EnvSampler(env_tconstructor, dtype=DT)
+
+        z(d...) = zeros(DT, d...)
+        fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
+        cg_op = CG{DT}(np, N)
+
+        new{
+            DT,
+            typeof(envsampler),
+            typeof(policy),
+            typeof(value),
+            typeof(valuefit!),
+            typeof(value_feature_op),
+            typeof(stopcb)
+        }(
+            envsampler,
+            policy,
+            value,
+            valuefit!,
+            value_feature_op,
+            Hmax,
+            N,
+            Nmean,
+            stopcb,
+            DT(norm_step_size),
+            DT(gamma),
+            DT(gaelambda),
+            whiten_advantages,
+            bootstrapped_nstep_returns,
+            max_cg_iter,
+            DT(cg_tol),
+            z(np),
+            z(np),
+            fvp_op,
+            cg_op,
+            z(N),
+            z(N)
+        )
+    end
 end
 
-function NaturalPolicyGradient(args...; kwargs...)
-    NaturalPolicyGradient{Float32}(args...; kwargs...)
-end
-
-
+# Algorithm 1 in "Towards Generalization and Simplicity in Continuous Control"
+# https://arxiv.org/pdf/1703.02660.pdf
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
     @unpack vanilla_pg, natural_pg = npg
@@ -194,7 +137,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             N,
             Hmax = Hmax,
         ) do action, state, observation
-            sample!(action, policy, observation)
+            randn!(action) # TODO noise buffer for better determinism
+            getaction!(action, policy, observation)
         end
     end
 
@@ -235,8 +179,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     elapsed_gradll = @elapsed grad_loglikelihood!(
                                                   fvp_op.glls,
                                                   policy,
-                                                  act_mat,
                                                   obs_mat,
+                                                  act_mat,
                                                  )
 
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
@@ -250,7 +194,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # solve for natural_pg = FIM * vanilla_pg using conjugate gradients
     # where the full FIM is avoiding using Fisher Vector Products
-    fill!(natural_pg, zero(DT))
+    # TODO better initial guess?
+    natural_pg .= zero(eltype(natural_pg)) # start CG from initial guess of 0
     elapsed_cg = @elapsed cg_op(
                                 natural_pg,
                                 fvp_op,
