@@ -1,6 +1,4 @@
 export discount,
-       discountsum,
-       discount!,
        GAEadvantages!,
        rollout!,
        threadedforeach,
