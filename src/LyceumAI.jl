@@ -1,10 +1,13 @@
 module LyceumAI
 
 # stdlib
-using Random, Statistics, LinearAlgebra
+using Random
+using Random: default_rng
+using Statistics, LinearAlgebra
 
 # 3rd party
 import LearnBase
+using DocStringExtensions
 import Flux: params, params!
 import Flux.Optimise: update!
 using UnsafeArrays,
@@ -21,9 +24,10 @@ using UnsafeArrays,
       LyceumBase
 
 # Lyceum
-import LyceumBase: getaction!
+import LyceumBase: getaction!, Maybe
 using LyceumBase.Tools
 using LyceumBase.Tools: zerofn, noop
+import LyceumBase.Tools: sample!
 
 using Zygote: Params, Grads
 using Base: promote_eltype, @propagate_inbounds, require_one_based_indexing
@@ -38,7 +42,6 @@ export
       NaturalPolicyGradient,
 
        # Models
-      AbstractPolicy,
       DiagGaussianPolicy,
       grad_loglikelihood!,
       loglikelihood,
@@ -59,7 +62,6 @@ const AbsMat = AbstractMatrix
 infinitecb(x...) = false
 
 
-
 abstract type AbstractModel{T} end
 Base.eltype(m::AbstractModel{T}) where {T} = T
 
@@ -77,7 +79,7 @@ include("flux.jl")
 
 
 include("models/policy.jl")
-export AbstractPolicy, DiagGaussianPolicy, grad_loglikelihood!, loglikelihood
+export DiagGaussianPolicy, grad_loglikelihood!, loglikelihood
 
 abstract type AbstractTrainer end
 # (o::AbstractTrainer{M})(m::M) where M
