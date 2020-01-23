@@ -8,13 +8,14 @@
 
     mppi = MPPI(
         env_tconstructor = n -> tconstruct(etype, n),
-        covar0 = Diagonal(0.1^2*I, size(actionspace(env), 1)),
+        covar = Diagonal(0.1^2*I, size(actionspace(env), 1)),
         lambda = 0.01,
         K =  K,
         H = H,
         gamma = 0.99
     )
-    experiment = ControllerIterator(mppi, env; T=T, plotiter=T+1)
+    f = (a, s, o) -> getaction!(a, s, mppi)
+    experiment = ControllerIterator(f, env; T=T, plotiter=T+1)
     for x in experiment
     end
     @test abs(geteval(env)) < 0.001

@@ -1,5 +1,5 @@
-@testset "NPG (PointMass)" begin
-    seed_threadrngs!(1)
+@testset "NaturalPolicyGradient (PointMass)" begin
+    seed_threadrngs!(2)
     etype = LyceumMuJoCo.PointMass
 
     e = etype()
@@ -42,7 +42,6 @@
     for (i, state) in enumerate(npg)
         i > 50 && break
         push!(x, state.meanterminal_eval)
-        @info (i, x[end])
     end
     @test mean(x[(end-10):end]) < 0.15
 end

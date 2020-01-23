@@ -1,51 +1,107 @@
-abstract type AbstractPolicy end
+"""
+    $(TYPEDEF)
 
+`DiagGaussianPolicy` policy represents a stochastic control policy, represented as a
+multivariate Gaussian distribution of the form:
 
-struct DiagGaussianPolicy{F,M,L<:AbstractVector} <: AbstractPolicy
-    meanNN::M
-    logstd::L
-    function DiagGaussianPolicy{F,M,L}(meanNN, logstd) where {F,M,L<:AbstractVector}
-        F isa Bool || throw(ArgumentError("Type parameter F must be <: Bool"))
-        new{F,M,L}(meanNN, logstd)
-    end
+```math
+\\pi_{\\theta}(a | o) = \\mathcal{N}(\\mu_{\\theta_1}(o), \\Sigma_{\\theta_2})
+```
+
+where ``\\mu_{\\theta_1}`` is a neural network, parameterized by ``\\theta_1``, that maps
+an observation to a mean action and ``\\Sigma_{\\theta_2}`` is a diagonal
+covariance matrix parameterized by ``\\theta_2``, the diagonal entries of the matrix.
+Rather than tracking ``\\Sigma_{\\theta_2}`` directly, we track the log standard deviations,
+which are easier to learn. Note that ``\\mu_{\\theta_1}`` is a _state-dependent_ mean
+while ``\\Sigma_{\\theta_2}`` is a _global_ covariance.
+"""
+struct DiagGaussianPolicy{Mean,Logstd<:AbstractVector}
+    meanNN::Mean
+    logstd::Logstd
+    fixedlogstd::Bool
 end
 
-function DiagGaussianPolicy{F}(meanNN, logstd) where {F}
-    DiagGaussianPolicy{F,typeof(meanNN),typeof(logstd)}(meanNN, logstd)
-end
+"""
+    $(SIGNATURES)
 
-DiagGaussianPolicy(meanNN, logstd) = DiagGaussianPolicy{true}(meanNN, logstd)
+Construct a `DiagGaussianPolicy` with a state-dependent mean `meanNN` and initial
+log-standard deviation `logstd`. If `fixedlogstd` is true, `logstd` will be treated as
+a constant. `meanNN` should be object that is compatible with Flux.jl and have the
+following signatures:
+- `meanNN(obs::AbstractVector)` --> `action::AbstractVector`
+- `meanNN(obs::AbstractMatrix)` --> `action::AbstractMatrix`
+"""
+function DiagGaussianPolicy(meanNN, logstd::AbstractVector; fixedlogstd::Bool = false)
+    DiagGaussianPolicy(meanNN, logstd, fixedlogstd)
+end
 
 
 Flux.@functor DiagGaussianPolicy
-Flux.trainable(policy::DiagGaussianPolicy{true}) =
-    (meanNN = policy.meanNN, logstd = policy.logstd)
-Flux.trainable(policy::DiagGaussianPolicy{false}) = (meanNN = policy.meanNN,)
+
+function Flux.trainable(policy::DiagGaussianPolicy)
+    if policy.fixedlogstd
+        (meanNN = policy.meanNN, ) \propagate_inbounds
+    else
+        (meanNN = policy.meanNN, logstd = policy.logstd)
+    end
+end
+
+"""
+    sample!([rng = GLOBAL_RNG, ]action, policy, feature)
+
+Treating `policy` as a stochastic policy, sample an action from `policy`, conditioned on
+`feature`, and store it in `action`.
+"""
+function sample!(rng::AbstractRNG, action::AbsVec, policy::DiagGaussianPolicy, feature::AbsVec)
+    randn!(rng, action)
+    action .= action .* exp.(policy.logstd) .+ policy(feature)
+end
+function sample!(action::AbsVec, policy::DiagGaussianPolicy, feature::AbsVec)
+    sample!(default_rng(), action, policy, feature)
+end
 
 
 (policy::DiagGaussianPolicy)(features) = policy.meanNN(features)
 
-function getaction!(actions::AbsVec, policy::DiagGaussianPolicy, features::AbsVec)
-    actions .= actions .* exp.(policy.logstd) .+ policy(features)
+"""
+    $(SIGNATURES)
+
+Treating `policy` as a deterministic policy, compute the mean action of `policy`,
+conditioned on `feature`, and store it in `action`.
+"""
+function getaction!(action::AbsVec, policy::DiagGaussianPolicy, feature::AbsVec)
+    action .= action .* exp.(policy.logstd) .+ policy(feature)
 end
 
-function loglikelihood(P::DiagGaussianPolicy, feature::AbsVec, action::AbsVec)
-    meanact = P(feature)
-    ll = -length(P.logstd) * log(2pi) / 2
+"""
+    $(SIGNATURES)
+
+Return loglikelihood of `action` conditioned on `feature` for `policy`.
+"""
+function loglikelihood(policy::DiagGaussianPolicy, action::AbsVec, feature::AbsVec)
+    meanact = policy(feature)
+    ls = policy.logstd
+    ll = -length(ls) * log(2pi) / 2
     for i = 1:length(action)
-        ll -= ((meanact[i] - action[i]) / exp(P.logstd[i]))^2 / 2
-        ll -= P.logstd[i]
+        ll -= ((meanact[i] - action[i]) / exp(ls[i]))^2 / 2
+        ll -= ls[i]
     end
     ll
 end
 
-function loglikelihood(m::DiagGaussianPolicy, feats::AbsMat, acts::AbsMat)
-    constterm = -length(m.logstd) * log(2pi) / 2 - sum(m.logstd)
-    meanacts = m(feats)
+"""
+    $(SIGNATURES)
 
-    #zs2 = ((meanacts .- acts) ./ exp.(m.logstd)) .^ 2
+Treating each column of `actions` and `features` as a single action/feature, return
+a vector of the loglikelihoods of `actions` conditioned on `features` for `policy`.
+"""
+function loglikelihood(policy::DiagGaussianPolicy, actions::AbsMat, features::AbsMat)
+    constterm = -length(policy.logstd) * log(2pi) / 2 - sum(policy.logstd)
+    meanactions = policy(features)
+
+    #zs2 = ((meanactions .- actions) ./ exp.(m.logstd)) .^ 2
     # NOTE: this is about 2x faster than the above line
-    zs = ((meanacts .- acts) ./ exp.(m.logstd))
+    zs = ((meanactions .- actions) ./ exp.(policy.logstd))
     zs = zs .^ 2
 
     #ll = DT(-0.5) * sum(zs, dims=1) .+ constterm
@@ -53,37 +109,53 @@ function loglikelihood(m::DiagGaussianPolicy, feats::AbsMat, acts::AbsMat)
     dropdims(ll, dims = 1)
 end
 
+
+"""
+    $(SIGNATURES)
+
+Return the gradient of the loglikelihood of `action` conditioned on `feature` with respect
+to `policy`'s parameters.
+"""
 function grad_loglikelihood!(
     gradll::AbsVec,
-    m::DiagGaussianPolicy,
-    feat::AbsVec,
-    act::AbsVec,
-    ps = params(m),
+    policy::DiagGaussianPolicy,
+    action::AbsVec,
+    feature::AbsVec
 )
-    gs = gradient(() -> loglikelihood(m, feat, act), params(m))
+    ps = params(policy)
+    gs = gradient(() -> loglikelihood(policy, action, feature), ps)
     copygrad!(gradll, ps, gs)
     gradll
 end
 
+"""
+    $(SIGNATURES)
+
+Treating each column of `actions` and `features` as a single action/feature,
+return a vector of gradients of the loglikelihood of `action` conditioned on `feature` with respect
+to `policy`'s parameters.
+
+This computation is done in parallel using `nthreads` threads.
+"""
 @propagate_inbounds function grad_loglikelihood!(
     gradlls::AbsMat,
     policy::DiagGaussianPolicy,
-    features::AbsMat,
     actions::AbsMat,
+    features::AbsMat,
     nthreads::Int = Threads.nthreads(),
 )
     @boundscheck begin
-        if !(axes(gradlls, 2) == axes(features, 2) == axes(actions, 2))
-            throw(ArgumentError("gradlls, features, and actions must have same 2nd axis"))
+        if !(axes(gradlls, 2) == axes(actions, 2) == axes(features, 2))
+            throw(ArgumentError("gradlls, actions, and features must have same 2nd axis"))
         end
-        require_one_based_indexing(gradlls, features, actions)
+        require_one_based_indexing(gradlls, actions, features)
     end
 
     bthreads = max(1, div(Threads.nthreads(), nthreads))
     ranges = splitrange(size(gradlls, 2), nthreads)
     @with_blasthreads bthreads begin
         @sync for r in ranges
-            Threads.@spawn _threaded_gradll!(gradlls, policy, features, actions, r)
+            Threads.@spawn _threaded_gradll!(gradlls, policy, actions, features, r)
         end
     end
     gradlls
@@ -92,48 +164,16 @@ end
 function _threaded_gradll!(
     gradlls::AbsMat,
     m::DiagGaussianPolicy,
-    feats::AbsMat,
     acts::AbsMat,
+    feats::AbsMat,
     range::UnitRange{Int},
 )
     for i in range
         feat = uview(feats, :, i)
         act = uview(acts, :, i)
         gradll = uview(gradlls, :, i)
-        grad_loglikelihood!(gradll, m, feat, act)
+        grad_loglikelihood!(gradll, m, act, feat)
     end
     gradlls
 end
-# TODO need to zero out w/ Zyogote?
 
-#function _gradllkernel(data, ms, r)
-#    pol = trainmode(getmine(ms))
-#    for i in r
-#        gll, f, a = data[i]
-#        grad_loglikelihood!(gll, pol, f, a)
-#    end
-#    nothing
-#end
-#
-#function grad_loglikelihood!(gradlls::AbsMat, ms::ThreadedFluxModel{<:DiagGaussianPolicy},
-#    feats::AbsMat, acts::AbsMat;
-#    nthreads=div(size(gradlls, 2), 1024))
-#
-#    N = size(gradlls, 2)
-#    jthreads = Threads.nthreads()
-#    nthreads = max(1, min(N, nthreads))
-#    nthreads = min(jthreads, nthreads)
-#    bthreads = max(1, div(jthreads, nthreads))
-#    oldbthreads = nblasthreads()
-#
-#    ranges = Distributed.splitrange(N, nthreads)
-#    data = eachsample(gradlls, feats, acts)
-#    BLAS.set_num_threads(bthreads)
-#    #GC.enable(false)
-#    @sync for tid=1:nthreads
-#        Threads.@spawn _gradllkernel(data, ms, ranges[tid])
-#    end
-#    #GC.enable(true); GC.gc()
-#    BLAS.set_num_threads(oldbthreads)
-#    gradlls
-#end
