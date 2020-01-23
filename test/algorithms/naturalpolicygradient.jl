@@ -1,4 +1,4 @@
-@testset "`NaturalPolicyGradient` (PointMass)" begin
+@testset "NaturalPolicyGradient (PointMass)" begin
     seed_threadrngs!(2)
     etype = LyceumMuJoCo.PointMass
 
