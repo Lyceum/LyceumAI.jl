@@ -6,6 +6,7 @@ struct ControllerIterator{C,E,B}
     trajectory::B
     plotiter::Int
     randstart::Bool
+    alreadyran::Base.RefValue{Bool}
 
     function ControllerIterator(
         controller,
@@ -27,13 +28,18 @@ struct ControllerIterator{C,E,B}
             T,
             trajectory,
             plotiter,
-            randstart
+            randstart,
+            Ref(false)
         )
     end
 end
 
-function Base.iterate(it::ControllerIterator, t)
-    t > it.T && return
+function Base.iterate(it::ControllerIterator, t::Int = 1)
+    it.alreadyran[] && error("Cannot iterate on a ControllerIterator more than once")
+    if t > it.T
+        it.alreadyran[] = true
+        return
+    end
 
     rolloutstep!(it.controller, it.trajectory, it.env, t)
     if mod(t, it.plotiter) == 0
@@ -51,23 +57,16 @@ function Base.iterate(it::ControllerIterator, t)
     (t, it), t + 1
 end
 
-function Base.iterate(it::ControllerIterator)
-    it.randstart ? randreset!(it.env) : reset!(it.env)
-    reset!(it.controller)
-    iterate(it, 1)
-end
-
 Base.length(it::ControllerIterator) = it.T
 
 function rolloutstep!(controller, traj, env, t)
-    # TODO uviews
     st = view(traj.states, .., t)
     ot = view(traj.observations, .., t)
     at = view(traj.actions, .., t)
 
     getstate!(st, env)
     getobs!(ot, env)
-    getaction!(at, st, ot, controller)
+    controller(at, st, ot)
     setaction!(env, at)
 
     step!(env)

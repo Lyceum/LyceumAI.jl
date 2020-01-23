@@ -33,11 +33,12 @@ end
     NaturalPolicyGradient{DT<:AbstractFloat}(args...; kwargs...) -> NaturalPolicyGradient
     NaturalPolicyGradient(args...; kwargs...) -> NaturalPolicyGradient
 
-Construct a `NaturalPolicyGradient` with `args` and `kwargs` using `DT <: AbstractFloat` as
-the element type for pre-allocated buffers, which defaults to Float32.
+Construct an instance of `NaturalPolicyGradient` with `args` and `kwargs`, where
+`DT <: AbstractFloat` is the element type used for pre-allocated buffers, which defaults to
+Float32.
 
 In the following explanation of the `NaturalPolicyGradient` constructor, we use the
-following notation/shorthands:
+following notation/definitions:
 - `dim_o = length(obsspace(env))`
 - `dim_a = length(actionspace(env))`
 - "terminal" (e.g. terminal observation) refers to timestep `T + 1` for a length `T` trajectory.
@@ -52,12 +53,11 @@ following notation/shorthands:
     - `policy(obs::AbstractMatrix)` --> `action::AbstractMatrix`,
         where `size(obs) == (dim_o, N)` and `size(action) == (dim_a, N)`.
 - `value`: a function mapping observations to scalar rewards, with the following signatures:
-    - `value(obs::AbstractVector)` --> `reward::AbstractVector`,
-        where `size(obs) == (dim_o, )` and `size(reward) == (1, )`.
+    - `value(obs::AbstractVector)` --> `reward::Real`, where `size(obs) == (dim_o, )`
     - `value(obs::AbstractMatrix)` --> `reward::AbstractVector`,
-        where `size(obs) == (dim_o, N)` and `size(reward) == (1, N)`.
+        where `size(obs) == (dim_o, N)` and `size(reward) == (N, )`.
 - `valuefit!`: a function with signature `valuefit!(value, obs::AbstractMatrix, returns::AbstractVector)`,
-    where `size(obs) == (dim_o, N)` and `size(returns) == (1, N)`, that fits `value` to
+    where `size(obs) == (dim_o, N)` and `size(returns) == (N, )`, that fits `value` to
     `obs` and `returns`.
 
 # Keywords

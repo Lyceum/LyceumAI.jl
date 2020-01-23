@@ -42,7 +42,6 @@
     for (i, state) in enumerate(npg)
         i > 50 && break
         push!(x, state.meanterminal_eval)
-        @info x[end]
     end
     @test mean(x[(end-10):end]) < 0.15
 end

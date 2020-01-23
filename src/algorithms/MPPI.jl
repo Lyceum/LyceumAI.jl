@@ -1,31 +1,29 @@
-# Algorithm 2 from https://www.cc.gatech.edu/~bboots3/files/InformationTheoreticMPC.pdf
-struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
+struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
     # MPPI parameters
     K::Int
     H::Int
-    covar0::C
     lambda::DT
     gamma::DT
-    valuefn::V
-    envs::Vector{E} # one per thread
-    initfn!::F
+    value::Value
+    envs::Vector{Env} # one per thread
+    initfn!::Init
 
     # internal
     noise::Array{DT,3}
-    covar_ul::UpperTriangular{DT,C}
+    covar_ul::Covar
     meantrajectory::Matrix{DT}
     trajectorycosts::Vector{DT}
-    obsbuffers::Vector{O}
-    statebuffers::Vector{S}
+    obsbuffers::Vector{Obs}
+    statebuffers::Vector{State}
 
     function MPPI{DT}(
         env_tconstructor,
         K::Integer,
         H::Integer,
-        covar0::AbstractMatrix{<:Real},
+        covar::AbstractMatrix{<:Real},
         lambda::Real,
         gamma::Real,
-        valuefn,
+        value,
         initfn!,
     ) where {DT<:AbstractFloat}
         envs = [e for e in env_tconstructor(Threads.nthreads())]
@@ -34,26 +32,15 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
         asp = actionspace(first(envs))
         osp = obsspace(first(envs))
 
-        nd, elt = ndims(asp), eltype(asp)
-        if nd != 1 || !(elt <: AbstractFloat)
-            error("actionspace(env) must be a vector space of <: AbstractFloat. Got $nd dimensions and eltype $elt.")
+        if !(asp isa Shapes.AbstractVectorShape)
+            throw(ArgumentError("actionspace(env) must be a Shape.AbstractVectorShape"))
         end
         K > 0 || error("K must be > 0. Got $K.")
         H > 0 || error("H must be > 0. Got $H.")
-        0 < lambda <= 1 || error("lambda must be 0 < lambda <=1. Got $lambda")
-        0 < gamma <= 1 || error("gamma must be 0 < gamma <=1. Got $gamma")
-        o = allocate(osp)
-        applicable(
-            valuefn,
-            o,
-        ) || error("valuefn must have signature valuefn(::$(typeof(o)))")
-        hasmethod(
-            initfn!,
-            (Matrix{DT},),
-        ) || error("initfn! must have signature initfn!(::Matrix{$DT})")
+        0 < lambda <= 1 || throw(ArgumentError("lambda must be in interval (0, 1]"))
+        0 < gamma <= 1 || throw(ArgumentError("gamma must be in interval (0, 1]"))
 
-        covar0 = DT.(covar0)
-        covar_ul = cholesky(covar0).UL
+        covar_ul = convert(AbsMat{DT}, cholesky(covar).UL)
         meantrajectory = zeros(DT, asp, H)
         trajectorycosts = zeros(DT, K)
         noise = zeros(DT, asp, H, K)
@@ -63,8 +50,8 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
         new{
             DT,
             length(asp),
-            typeof(covar0),
-            typeof(valuefn),
+            typeof(covar_ul),
+            typeof(value),
             eltype(envs),
             typeof(initfn!),
             eltype(obsbuffers),
@@ -72,10 +59,9 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
         }(
             K,
             H,
-            covar0,
             lambda,
             gamma,
-            valuefn,
+            value,
             envs,
             initfn!,
             noise,
@@ -88,26 +74,73 @@ struct MPPI{DT,nu,C<:AbstractMatrix{DT},V,E,F,O,S}
     end
 end
 
-function MPPI(;
-    dtype = Float64,
-    env_tconstructor,
-    covar0,
+"""
+    $(TYPEDEF)
+
+    MPPI{DT<:AbstractFloat}(args...; kwargs...) -> MPPI
+    MPPI(args...; kwargs...) -> MPPI
+
+Construct an instance of  `MPPI` with `args` and `kwargs`, where `DT <: AbstractFloat` is
+the element type used for pre-allocated buffers, which defaults to Float32.
+
+In the following explanation of the `MPPI` constructor, we use the
+following notation:
+- `U::Matrix`: the canonical control vector ``(u_{1}, u_{2}, \\dots, u_{H})``, where
+    `size(U) == (length(actionspace(env)), H)`.
+
+# Arguments
+
+- `env_tconstructor`: a function with signature `env_tconstructor(n)` that returns `n`
+    instances of `T`, where `T <: AbstractEnvironment`.
+
+# Keywords
+
+- `H::Integer`: Length of sampled trajectories.
+- `K::Integer`: Number of trajectories to sample.
+- `covar::AbstractMatrix`: The covariance matrix for the Normal distribution from which
+    control pertubations are sampled from.
+- `gamma::Real`: Reward discount, applied as `gamma^(t - 1) * reward[t]`.
+- `lambda::Real`: Temperature parameter for the exponential reweighting of sampled
+    trajectories. In the limit that lambda approaches 0, `U` is set to the highest reward
+    trajectory. Conversely, as `lambda` approaches infinity, `U` is computed as the
+    unweighted-average of the samples trajectories.
+- `value`: a function mapping observations to scalar rewards, with the signature
+    `value(obs::AbstractVector) --> reward::Real`
+- `initfn!`: A function with the signature `initfn!(U::Matrix)` used for
+    re-initializing `U` after shifting it. Defaults to setting the last
+    element of `U` to 0.
+"""
+function MPPI{DT}(env_tconstructor;
+    covar,
     lambda,
     K,
     H,
     gamma = 1,
-    valuefn = zerofn,
+    value = zerofn,
     initfn! = default_initfn!,
-)
-    MPPI{dtype}(env_tconstructor, K, H, covar0, lambda, gamma, valuefn, initfn!)
+) where {DT<:AbstractFloat}
+    MPPI{DT}(env_tconstructor, K, H, covar, lambda, gamma, value, initfn!)
 end
 
+MPPI(args...; kwargs...) = MPPI{Float32}(args...; kwargs...)
+
+"""
+    $(TYPEDSIGNATURES)
+
+Resets the canonical control vector to zeros.
+"""
 LyceumBase.reset!(m::MPPI) = (fill!(m.meantrajectory, 0); m)
 
+"""
+    $(SIGNATURES)
+
+Starting from the environment's `state`, perform one step of the MPPI algorithm and
+store the resulting action in `action`. The trajectory sampling portion of MPPI is
+done in parallel using `nthreads` threads.
+"""
 @propagate_inbounds function LyceumBase.getaction!(
     action::AbstractVector,
     state,
-    ::Any,
     m::MPPI{DT,nu};
     nthreads::Integer = Threads.nthreads(),
 ) where {DT,nu}
@@ -171,7 +204,7 @@ function perturbedrollout!(m::MPPI{DT,nu}, state, k, tid) where {DT,nu}
         discountfactor *= m.gamma
     end # env at t=H+1
     getobs!(obsbuf, env)
-    terminalvalue = convert(DT, m.valuefn(obsbuf))
+    terminalvalue = convert(DT, m.value(obsbuf))
     @inbounds m.trajectorycosts[k] = -(discountedreward + terminalvalue * discountfactor)
     return m
 end
