@@ -7,7 +7,7 @@
     H = 10
 
     mppi = MPPI(
-        n -> tconstruct(etype, n),
+        env_tconstructor = n -> tconstruct(etype, n),
         covar = Diagonal(0.1^2*I, size(actionspace(env), 1)),
         lambda = 0.01,
         K =  K,

@@ -88,13 +88,10 @@ following notation:
 - `U::Matrix`: the canonical control vector ``(u_{1}, u_{2}, \\dots, u_{H})``, where
     `size(U) == (length(actionspace(env)), H)`.
 
-# Arguments
+# Keywords
 
 - `env_tconstructor`: a function with signature `env_tconstructor(n)` that returns `n`
     instances of `T`, where `T <: AbstractEnvironment`.
-
-# Keywords
-
 - `H::Integer`: Length of sampled trajectories.
 - `K::Integer`: Number of trajectories to sample.
 - `covar::AbstractMatrix`: The covariance matrix for the Normal distribution from which
@@ -110,7 +107,8 @@ following notation:
     re-initializing `U` after shifting it. Defaults to setting the last
     element of `U` to 0.
 """
-function MPPI{DT}(env_tconstructor;
+function MPPI{DT}(;
+    env_tconstructor,
     covar,
     lambda,
     K,
