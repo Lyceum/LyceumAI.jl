@@ -90,11 +90,9 @@ end
 ####
 #### Utils
 ####
-
 function multilayer_perceptron(
     d1,
     d2,
-    d3,
     d...;
     σ = identity,
     σ_final = identity,
@@ -106,7 +104,7 @@ function multilayer_perceptron(
 )
 
     layers = []
-    ds = (d1, d2, d3, d...)
+    ds = (d1, d2, d...)
     for i = 2:(length(ds)-1)
         in, out = ds[i-1], ds[i]
         push!(layers, Flux.Dense(dtype.(initW(out, in)), dtype.(initb(out)), σ))
