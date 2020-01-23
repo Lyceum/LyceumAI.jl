@@ -42,7 +42,6 @@ export
       NaturalPolicyGradient,
 
        # Models
-      AbstractPolicy,
       DiagGaussianPolicy,
       grad_loglikelihood!,
       loglikelihood,
@@ -80,7 +79,7 @@ include("flux.jl")
 
 
 include("models/policy.jl")
-export AbstractPolicy, DiagGaussianPolicy, grad_loglikelihood!, loglikelihood
+export DiagGaussianPolicy, grad_loglikelihood!, loglikelihood
 
 abstract type AbstractTrainer end
 # (o::AbstractTrainer{M})(m::M) where M

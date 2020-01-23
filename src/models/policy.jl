@@ -1,5 +1,3 @@
-abstract type AbstractPolicy end
-
 """
     $(TYPEDEF)
 
@@ -17,7 +15,7 @@ Rather than tracking ``\\Sigma_{\\theta_2}`` directly, we track the log standard
 which are easier to learn. Note that ``\\mu_{\\theta_1}`` is a _state-dependent_ mean
 while ``\\Sigma_{\\theta_2}`` is a _global_ covariance.
 """
-struct DiagGaussianPolicy{Mean,Logstd<:AbstractVector} <: AbstractPolicy
+struct DiagGaussianPolicy{Mean,Logstd<:AbstractVector}
     meanNN::Mean
     logstd::Logstd
     fixedlogstd::Bool
