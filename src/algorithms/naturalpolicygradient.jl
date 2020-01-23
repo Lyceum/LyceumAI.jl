@@ -235,8 +235,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     elapsed_gradll = @elapsed grad_loglikelihood!(
                                                   fvp_op.glls,
                                                   policy,
-                                                  obs_mat,
                                                   act_mat,
+                                                  obs_mat,
                                                  )
 
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
@@ -250,7 +250,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # solve for natural_pg = FIM * vanilla_pg using conjugate gradients
     # where the full FIM is avoiding using Fisher Vector Products
-    fill!(natural_pg, zero(jT))
+    fill!(natural_pg, zero(DT))
     elapsed_cg = @elapsed cg_op(
                                 natural_pg,
                                 fvp_op,
