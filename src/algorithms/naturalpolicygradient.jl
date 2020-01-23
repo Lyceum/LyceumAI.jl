@@ -1,4 +1,4 @@
-struct NaturalPolicyGradient{DT,S,P,V,VF,VOP}
+struct NaturalPolicyGradient{DT<:AbstractFloat,S,P,V,VF,VOP}
     envsampler::S
     policy::P
 
@@ -27,7 +27,6 @@ struct NaturalPolicyGradient{DT,S,P,V,VF,VOP}
 
     advantages_vec::Vector{DT} # N
     returns_vec::Vector{DT} # N
-
 end
 
 """
@@ -35,7 +34,7 @@ end
     NaturalPolicyGradient(args...; kwargs...) -> NaturalPolicyGradient
 
 Construct a `NaturalPolicyGradient` with `args` and `kwargs` using `DT <: AbstractFloat` as
-the element type for pre-allocated buffers, which defaults to Float64.
+the element type for pre-allocated buffers, which defaults to Float32.
 
 In the following explanation of the `NaturalPolicyGradient` constructor, we use the
 following notation/shorthands:
@@ -122,16 +121,15 @@ function NaturalPolicyGradient{DT}(
     norm_step_size::Real = 0.05,
     gamma::Real = 0.995,
     gaelambda::Real = 0.98,
-    max_cg_iter::Maybe{Integer} = nothing,
-    cg_tol = sqrt(eps(real(DT))),
+    max_cg_iter::Integer = 15,
+    cg_tol::Real = sqrt(eps(real(DT))),
     whiten_advantages::Bool = false,
     bootstrapped_nstep_returns::Bool = false,
     value_feature_op = nothing
 ) where {DT <: AbstractFloat}
     e = first(env_tconstructor(1))
-
-    max_cg_iter === nothing && (max_cg_iter = 2 * length(actionspace(e)))
     np = nparams(policy)
+    z(d...) = zeros(DT, d...)
 
     0 < np || throw(ArgumentError("policy has no parameters"))
     0 < Hmax <= N || throw(ArgumentError("Hmax must be in interval (0, N]"))
@@ -142,8 +140,6 @@ function NaturalPolicyGradient{DT}(
     0 < gaelambda <= 1 || throw(ArgumentError("gaelambda must be in interval (0, 1]"))
     0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
     0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
-
-    z(d...) = zeros(DT, d...)
 
     envsampler = EnvSampler(env_tconstructor, dtype=DT)
     fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
@@ -175,7 +171,7 @@ function NaturalPolicyGradient{DT}(
 end
 
 function NaturalPolicyGradient(args...; kwargs...)
-    NaturalPolicyGradient{Float64}(args...; kwargs...)
+    NaturalPolicyGradient{Float32}(args...; kwargs...)
 end
 
 
@@ -198,9 +194,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             N,
             Hmax = Hmax,
         ) do action, state, observation
-            #randn!(action) # TODO noise buffer for better determinism
             sample!(action, policy, observation)
-            #getaction!(action, policy, observation)
         end
     end
 
@@ -256,8 +250,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # solve for natural_pg = FIM * vanilla_pg using conjugate gradients
     # where the full FIM is avoiding using Fisher Vector Products
-    # TODO better initial guess?
-    natural_pg .= zero(eltype(natural_pg)) # start CG from initial guess of 0
+    fill!(natural_pg, zero(jT))
     elapsed_cg = @elapsed cg_op(
                                 natural_pg,
                                 fvp_op,
