@@ -40,7 +40,7 @@ Flux.@functor DiagGaussianPolicy
 
 function Flux.trainable(policy::DiagGaussianPolicy)
     if policy.fixedlogstd
-        (meanNN = policy.meanNN, ) \propagate_inbounds
+        (meanNN = policy.meanNN, )
     else
         (meanNN = policy.meanNN, logstd = policy.logstd)
     end
