@@ -40,6 +40,7 @@ export
        # Algorithms
       MPPI,
       NaturalPolicyGradient,
+      SubNaturalPolicyGradient,
 
        # Models
       DiagGaussianPolicy,
@@ -89,6 +90,7 @@ abstract type AbstractTrainer end
 include("algorithms/cg.jl")
 include("algorithms/MPPI.jl")
 include("algorithms/naturalpolicygradient.jl")
+include("algorithms/subnaturalpolicygradient.jl")
 
 
 include("controller.jl")
