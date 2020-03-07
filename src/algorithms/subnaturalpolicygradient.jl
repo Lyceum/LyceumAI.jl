@@ -186,13 +186,14 @@ function select_reject(x, selected, ϵ)
         midval = (startval + endval) / 2
         midpoint = div(selected[i] + selected[i+1], 2)
         delta = abs(x[midpoint] - midval)
-        if delta > ϵ
+        if delta >= ϵ
             push!(keeps, midpoint)
         end
     end
     return keeps
 end
 
+# x is Matrix
 function compress(x, ϵ)
 
     n = length(x)
@@ -210,7 +211,6 @@ function compress(x, ϵ)
     end
 
     return keeps_all, idxs
-    
 end
 
 function extend(x, newn)
@@ -221,6 +221,7 @@ function extend(x, newn)
     return vcat(x, addvec)
 end
 
+# mat, keeps are Vec{Vec{}}
 function keepfilter(mat, keeps; resize=nothing)
     @assert size(mat) == size(keeps)
 
@@ -237,9 +238,9 @@ function keepfilter(mat, keeps; resize=nothing)
 
     if resize !== nothing
         if length(size(newmat[1])) == 2
-            ret = hcat(newmat...)
+            ret = reduce(hcat, newmat)
         else
-            ret = vcat(newmat...)
+            ret = reduce(vcat, newmat)
         end
     else
         ret = newmat
@@ -250,7 +251,7 @@ end
 
 function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
-    @unpack vanilla_pg, natural_pg = npg
+    #@unpack vanilla_pg, natural_pg = npg
     @unpack advantages_vec, returns_vec = npg
     @unpack fvp_op, cg_op = npg
     @unpack ϵ = npg
@@ -279,13 +280,6 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
     advantages  = batchlike(rewards, advantages_vec)
     returns     = batchlike(rewards, returns_vec)
     trajlengths = map(length, rewards)
-
-    # println("obs_mat ", size(obs_mat))
-    # println("termobs_mat ", size(termobs_mat))
-    # println("act_mat ", size(act_mat))
-    # println("advantages ", size(advantages))
-    # println("returns ", size(returns))
-
 
     if npg.value_feature_op !== nothing
         feat_mat = npg.value_feature_op(observations)
@@ -326,42 +320,47 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
     obs_size = length(obsspace(npg.envsampler.envs[1]))
     act_size = length(actionspace(npg.envsampler.envs[1]))
 
-    obs_mat = keepfilter(observations, keeps, resize=(obs_size, :))
-    act_mat = keepfilter(actions, keeps, resize=(act_size, :))
-    advantages_vec = keepfilter(advantages, keeps, resize=(:))
-    advantages = keepfilter(advantages, keeps)
-    returns = keepfilter(returns, keeps)
+    # apply filtering and move on
+    f_obs_mat = keepfilter(observations, keeps, resize=(obs_size, :))
+    f_act_mat = keepfilter(actions, keeps, resize=(act_size, :))
+    f_advantages_vec = keepfilter(advantages, keeps, resize=(:))
+    f_returns_vec = keepfilter(returns, keeps, resize=(:))
+    #advantages = keepfilter(advantages, keeps)
+    #returns = keepfilter(returns, keeps) # not used
 
-    # println("obs_mat ", size(obs_mat))
-    # println("act_mat ", size(act_mat))
-    # println("advantages ", size(advantages))
-    # println("advantages_vec ", size(advantages_vec))
-    # println("returns ", size(returns))
+    if npg.value_feature_op !== nothing
+        ## TODO!! bug?? if we sub-sample for value function learning, with 
+        # featurization (ie timefeatures), then something catestrophically fails.
+        # sub-samping without features works fine....
+        f_feat_mat = npg.value_feature_op(f_obs_mat)
+    else
+        f_feat_mat = f_obs_mat
+    end
 
     z(d...) = zeros(DT, d...)
     np = nparams(npg.policy)
-    newN = size(obs_mat, 2)
+    newN = size(f_obs_mat, 2)
     fvp_op = FVP(z(np, newN), true)
     vanilla_pg = z(np)
     natural_pg = z(np)
 
-
     # Fit value function to the current batch
     elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, feat_mat, returns_vec))
+    #elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, f_feat_mat, f_returns_vec))
 
     # Compute ∇log π_θ(at | ot)
     elapsed_gradll = @elapsed grad_loglikelihood!(
                                                   fvp_op.glls,
                                                   policy,
-                                                  act_mat,
-                                                  obs_mat,
+                                                  f_act_mat,
+                                                  f_obs_mat,
                                                  )
     
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
     elapsed_vpg = @elapsed mul!(
                                 vanilla_pg,
                                 fvp_op.glls,
-                                advantages_vec,
+                                f_advantages_vec,
                                 one(DT) / newN,
                                 zero(DT)
                                )
