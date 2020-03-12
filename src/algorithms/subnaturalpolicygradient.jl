@@ -180,7 +180,7 @@ end
 
 function select_reject(x, selected, ϵ)
     keeps = Vector{Int64}()
-    for i=1:length(selected)-1
+    @inbounds for i=1:length(selected)-1
         startval = x[selected[i]]
         endval = x[selected[i+1]]
         midval = (startval + endval) / 2
@@ -222,31 +222,22 @@ function extend(x, newn)
 end
 
 # mat, keeps are Vec{Vec{}}
-function keepfilter(mat, keeps; resize=nothing)
+function keepfilter(mat::AbstractVector{<:AbstractMatrix}, keeps; resize=false)
+    @assert size(mat) == size(keeps)
+    newmat = []
+    for (arr, keep) in zip(mat, keeps)
+        push!(newmat, arr[:, keep])
+    end
+    resize ? reduce(hcat, newmat) : newmat
+end
+function keepfilter(mat::AbstractVector{<:AbstractVector}, keeps; resize=false)
     @assert size(mat) == size(keeps)
 
     newmat = []
-
     for (arr, keep) in zip(mat, keeps)
-        if length(size(arr)) == 2
-            newarr = arr[:, keep]
-        else
-            newarr = arr[keep]
-        end
-        push!(newmat, newarr)
+        push!(newmat, arr[keep])
     end
-
-    if resize !== nothing
-        if length(size(newmat[1])) == 2
-            ret = reduce(hcat, newmat)
-        else
-            ret = reduce(vcat, newmat)
-        end
-    else
-        ret = newmat
-    end
-
-    return ret
+    resize ? reduce(vcat, newmat) : newmat
 end
 
 function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
@@ -303,7 +294,7 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
         nstep_returns!(returns, rewards, gamma)
     end
 
-    keeps = []
+    keeps = Vector{Vector{Int}}(undef, 0)
 
     for ret in baseline
         newn = Int(2^ceil(log2(length(ret))) + 1)
@@ -317,14 +308,12 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
         push!(keeps, keep_final)
     end
 
-    obs_size = length(obsspace(npg.envsampler.envs[1]))
-    act_size = length(actionspace(npg.envsampler.envs[1]))
-
     # apply filtering and move on
-    f_obs_mat = keepfilter(observations, keeps, resize=(obs_size, :))
-    f_act_mat = keepfilter(actions, keeps, resize=(act_size, :))
-    f_advantages_vec = keepfilter(advantages, keeps, resize=(:))
-    f_returns_vec = keepfilter(returns, keeps, resize=(:))
+    f_obs_mat = keepfilter(observations, keeps; resize=true)
+    f_act_mat = keepfilter(actions, keeps; resize=true)
+    #f_advantages_vec = keepfilter(advantages, keeps; resize=true)
+    #f_returns_vec = keepfilter(returns, keeps; resize=true)
+
     #advantages = keepfilter(advantages, keeps)
     #returns = keepfilter(returns, keeps) # not used
 
@@ -332,7 +321,7 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
         ## TODO!! bug?? if we sub-sample for value function learning, with 
         # featurization (ie timefeatures), then something catestrophically fails.
         # sub-samping without features works fine....
-        f_feat_mat = npg.value_feature_op(f_obs_mat)
+        f_feat_mat = npg.value_feature_op(observations)
     else
         f_feat_mat = f_obs_mat
     end
@@ -360,7 +349,7 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
     elapsed_vpg = @elapsed mul!(
                                 vanilla_pg,
                                 fvp_op.glls,
-                                f_advantages_vec,
+                                advantages_vec,
                                 one(DT) / newN,
                                 zero(DT)
                                )
@@ -376,7 +365,6 @@ function Base.iterate(npg::SubNaturalPolicyGradient{DT}, i = 1) where {DT}
                                 maxiter = npg.max_cg_iter,
                                 initiallyzero = true
                                )
-
 
     # update policy parameters: θ += alpha * natural_pg
     alpha = sqrt(npg.norm_step_size / dot(natural_pg, vanilla_pg))

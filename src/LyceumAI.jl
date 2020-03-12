@@ -31,7 +31,7 @@ import LyceumBase.Tools: sample!
 
 using Zygote: Params, Grads
 using Base: promote_eltype, @propagate_inbounds, require_one_based_indexing
-using MLDataPattern: eachbatch, nobs
+using MLDataPattern: eachbatch, nobs, RandomBatches
 using MacroTools: @forward
 using LyceumBase: @mustimplement
 

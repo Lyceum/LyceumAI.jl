@@ -30,7 +30,9 @@ function (p::FluxTrainer)(model, datas::Vararg{<:AbstractArray}; kwargs...)
     isnothing(lossfn) && error("`lossfn` not specified and no default provided")
     !(isnothing(szbatch) || szbatch isa Integer) && error("`szbatch` must be `nothing` or <:Integer")
 
-    datas = isnothing(szbatch) ? (datas,) : eachbatch(datas, szbatch, batchdim)
+    #datas = isnothing(szbatch) ? (datas,) : eachbatch(datas, szbatch, batchdim)
+    datas = isnothing(szbatch) ? (datas,) : RandomBatches(datas, szbatch,
+                                                          max(1, div(size(datas[1], 2), szbatch)))
     FluxTrainerIterator(model, datas, optimiser, lossfn, batchdim, stopcb)
 end
 
@@ -64,6 +66,8 @@ function Base.iterate(ft::FluxTrainerIterator, state = FluxTrainerState())
         (d...) -> l(m, d...)
     end
 
+    #bthreads = Threads.nthreads()
+    #@with_blasthreads bthreads for batch in ft.datas
     for batch in ft.datas
         batchloss, gs = let batch=batch, ps=ps
             gradientandvalue(() -> loss(batch...), ps)
