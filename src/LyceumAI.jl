@@ -24,16 +24,16 @@ using UnsafeArrays,
       LyceumBase
 
 # Lyceum
-import LyceumBase: getaction!, Maybe
-using LyceumBase.Tools
-using LyceumBase.Tools: zerofn, noop
-import LyceumBase.Tools: sample!
-
+using LyceumCore
 using Zygote: Params, Grads
 using Base: promote_eltype, @propagate_inbounds, require_one_based_indexing
 using MLDataPattern: eachbatch, nobs
 using MacroTools: @forward
+using SpecialArrays
 using LyceumBase: @mustimplement
+
+zerofn(args...) = 0
+noop(args...) = nothing
 
 
 export

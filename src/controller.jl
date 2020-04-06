@@ -17,10 +17,9 @@ struct ControllerIterator{C,E,B}
     )
         trajectory = (
             states = Array(undef, statespace(env), T),
-            observations = Array(undef, obsspace(env), T),
+            observations = Array(undef, observationspace(env), T),
             actions = Array(undef, actionspace(env), T),
             rewards = Array(undef, rewardspace(env), T),
-            evaluations = Array(undef, evalspace(env), T),
         )
         new{typeof(controller),typeof(env),typeof(trajectory)}(
             controller,
@@ -65,17 +64,15 @@ function rolloutstep!(controller, traj, env, t)
     at = view(traj.actions, .., t)
 
     getstate!(st, env)
-    getobs!(ot, env)
+    getobservation!(ot, env)
     controller(at, st, ot)
     setaction!(env, at)
 
     step!(env)
     r = getreward(st, at, ot, env)
-    e = geteval(st, at, ot, env)
-    done = isdone(st, at, ot, env)
+    done = isdone(st, ot, env)
 
     traj.rewards[t] = r
-    traj.evaluations[t] = e
 
     traj
 end

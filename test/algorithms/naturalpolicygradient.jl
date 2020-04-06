@@ -1,9 +1,9 @@
 @testset "NaturalPolicyGradient (PointMass)" begin
-    seed_threadrngs!(2)
+    tseed!(2)
     etype = LyceumMuJoCo.PointMass
 
     e = etype()
-    dobs, dact = length(obsspace(e)), length(actionspace(e))
+    dobs, dact = length(observationspace(e)), length(actionspace(e))
 
     DT = Float32
     Hmax, K = 300, 32
@@ -38,10 +38,10 @@
         N=N,
     )
 
-    x = Float64[]
+    meanR = Float64[]
     for (i, state) in enumerate(npg)
         i > 50 && break
-        push!(x, state.meanterminal_eval)
+        push!(meanR, mean(τ -> τ.R[end], state.batch.mean))
     end
-    @test mean(x[(end-10):end]) < 0.15
+    @test mean(meanR[(end-10):end]) > 0.85
 end
