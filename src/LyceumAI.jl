@@ -24,6 +24,7 @@ using UnsafeArrays,
       LyceumBase
 
 # Lyceum
+using LyceumCore
 using Zygote: Params, Grads
 using Base: promote_eltype, @propagate_inbounds, require_one_based_indexing
 using MLDataPattern: eachbatch, nobs
