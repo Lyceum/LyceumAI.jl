@@ -141,7 +141,7 @@ function NaturalPolicyGradient{DT}(
     0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
     0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
 
-    envsampler = EnvironmentSampler(env_tconstructor)
+    envsampler = EnvironmentSampler(env_tconstructor, dtype = DT)
     fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
     cg_op = CG{DT}(np, N)
 
@@ -176,32 +176,29 @@ end
 
 
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
+
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
     @unpack vanilla_pg, natural_pg = npg
     @unpack advantages_vec, returns_vec = npg
     @unpack fvp_op, cg_op = npg
 
-    meanbatch = @closure sample(envsampler, npg.Nmean, reset! = randreset!, Hmax=Hmax) do a, s, o
-        a .= policy(o)
-    end
-
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
-        batch = @closure sample(envsampler, N, reset! = randreset!, Hmax = Hmax) do a, s, o
+        batch = @closure sample(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, s, o
             sample!(a, policy, o)
         end
     end
 
     @unpack O, A, R, oT = batch
-    O_mat = flatten(O)::AbstractMatrix
-    A_mat = flatten(A)::AbstractMatrix
-    oT_mat = flatten(oT)::AbstractMatrix
+    O_mat = SpecialArrays.flatten(O)::AbstractMatrix
+    A_mat = SpecialArrays.flatten(A)::AbstractMatrix
+    oT_mat = SpecialArrays.flatten(oT)::AbstractMatrix
     advantages  = batchlike(advantages_vec, batch)
     returns     = batchlike(returns_vec, batch)
 
     if npg.value_feature_op !== nothing
         # TODO change this
-        feat_mat = npg.value_feature_op(O)
+        feat_mat = npg.value_feature_op(O_mat)
         termfeat_mat = npg.value_feature_op(oT_mat, map(length, batch))
     else
         feat_mat = O_mat
@@ -270,7 +267,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             cg = elapsed_cg,
             valuefit = elapsed_valuefit,
         ),
-        batch = (mean = meanbatch, stochastic = batch),
+        batch = batch,
         vpgnorm = norm(vanilla_pg),
         npgnorm = norm(natural_pg),
     )

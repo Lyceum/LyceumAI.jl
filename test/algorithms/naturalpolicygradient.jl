@@ -1,12 +1,12 @@
 @testset "NaturalPolicyGradient (PointMass)" begin
-    tseed!(2)
+    tseed!(1)
     etype = LyceumMuJoCo.PointMass
 
     e = etype()
     dobs, dact = length(observationspace(e)), length(actionspace(e))
 
     DT = Float32
-    Hmax, K = 300, 32
+    Hmax, K = 256, 16
     N = Hmax * K
 
     policy = DiagGaussianPolicy(
@@ -15,33 +15,41 @@
     )
     policy = Flux.paramtype(DT, policy)
 
-    value = multilayer_perceptron(dobs, 16, 16, 1, σ=Flux.relu)
+    value = multilayer_perceptron(dobs, 32, 32, 1, σ=Flux.relu)
     valueloss(bl, X, Y) = mse(vec(bl(X)), vec(Y))
 
     valuetrainer = FluxTrainer(
-        optimiser = ADAM(1e-3),
-        szbatch = 32,
+        optimiser = RADAM(1e-3),
+        szbatch = 64,
         lossfn = valueloss,
-        stopcb = s->s.nepochs > 4
+        stopcb = s->s.nepochs > 1
     )
     value = Flux.paramtype(DT, value)
+
 
     npg = NaturalPolicyGradient(
         n -> tconstruct(etype, n),
         policy,
         value,
-        gamma = 0.9,
+        gamma = 0.97,
         gaelambda = 0.95,
         valuetrainer,
         Hmax=Hmax,
-        norm_step_size=0.05,
+        norm_step_size=0.01,
         N=N,
     )
 
-    meanR = Float64[]
+    envsampler = EnvironmentSampler(n -> tconstruct(etype, n))
+
+    # Test that the terminal reward for the mean policy is > 0.95 for at least 5
+    # iterations in a row, in at most 250 iterations.
+    npasses = 0
     for (i, state) in enumerate(npg)
-        i > 50 && break
-        push!(meanR, mean(τ -> τ.R[end], state.batch.mean))
+        (npasses > 5 || i > 250) && break
+        batch = sample(envsampler, N, reset! = randreset!, Hmax=Hmax) do a, s, o
+            a .= policy(o)
+        end
+        npasses = mean(τ -> τ.R[end], batch) > 0.95 ? npasses + 1 : 0
     end
-    @test mean(meanR[(end-10):end]) > 0.85
+    @test npasses > 5
 end
