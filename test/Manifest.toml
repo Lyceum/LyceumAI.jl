@@ -466,15 +466,15 @@ version = "0.3.0-DEV"
 
 [[LyceumBase]]
 deps = ["Adapt", "AutoHashEquals", "AxisArrays", "BangBang", "BenchmarkTools", "Dates", "Distributions", "DocStringExtensions", "FastClosures", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "LyceumCore", "MacroTools", "Parameters", "Pkg", "Printf", "Random", "Reexport", "Setfield", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
-git-tree-sha1 = "07f06e3b82e7c7c4dff7ff5369529b6afd1ee24b"
-repo-rev = "refactor"
+git-tree-sha1 = "5ad4fba87ca8e46dd30dfdfee972f930875ca2c1"
+repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumBase.jl.git"
 uuid = "db31fed1-ca1e-4084-8a49-12fae1996a55"
 version = "0.3.0-DEV"
 
 [[LyceumCore]]
 deps = ["LyceumDevTools", "StaticNumbers"]
-git-tree-sha1 = "7cb9c088a42228421b6d553efc88fe8f65fa368c"
+git-tree-sha1 = "be8e2889578b0eac33a44a0e21b463128cf93da3"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumCore.jl.git"
 uuid = "e5bd5517-2193-49f0-ba9c-d5a8508cb639"
@@ -482,7 +482,7 @@ version = "0.1.1"
 
 [[LyceumDevTools]]
 deps = ["Base64", "BenchmarkTools", "Dates", "Distributed", "GitHub", "HTTP", "JuliaFormatter", "LibGit2", "LyceumBase", "LyceumCore", "MacroTools", "Markdown", "Parameters", "Pkg", "PkgTemplates", "Random", "Reexport", "Registrator", "RegistryTools", "Shapes", "Test"]
-git-tree-sha1 = "aab09925faa478638d28a05e238e176ceaafc02c"
+git-tree-sha1 = "3ecb36e63d7925f2890e899fa8b7a4847429bf7c"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumDevTools.jl.git"
 uuid = "fd23256c-5a67-41c4-8f5a-c8cf5526e505"
@@ -490,7 +490,7 @@ version = "0.4.0"
 
 [[LyceumMuJoCo]]
 deps = ["Distances", "Distributions", "DocStringExtensions", "LinearAlgebra", "LyceumBase", "LyceumCore", "LyceumDevTools", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "Statistics", "UnsafeArrays"]
-git-tree-sha1 = "53c9683880e07f7ca086100803dbd732f31a9d33"
+git-tree-sha1 = "2d69e9314547c1e832ab549b643b1379f1376cff"
 repo-rev = "refactor"
 repo-url = "https://github.com/Lyceum/LyceumMuJoCo.jl.git"
 uuid = "48b9757e-04b8-4dbf-b6ed-75c13d9e4026"
@@ -753,7 +753,7 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[SpecialArrays]]
 deps = ["Adapt", "DocStringExtensions", "LyceumCore", "LyceumDevTools", "MacroTools", "Requires", "Shapes", "StaticNumbers", "UnsafeArrays", "Zygote"]
-git-tree-sha1 = "ec469d3e833a06be6c5ab5cfc0b3d7e3f13c2dd4"
+git-tree-sha1 = "54f8cd91fe43bffeabd4d19105a02e86bc2fc8ed"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/SpecialArrays.jl.git"
 uuid = "dced3ab1-7816-4ad4-9c7c-956aa26e9cbf"
@@ -1042,9 +1042,9 @@ version = "1.2.0"
 
 [[ZeroMQ_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "d24fc0004686b534cc7518412b626deeea0b0208"
+git-tree-sha1 = "42b0955a7ad0935d454d750fedd812d3f2836fde"
 uuid = "8f1865be-045e-5c20-9c9f-bfbfb0764568"
-version = "4.3.2+1"
+version = "4.3.2+2"
 
 [[ZipFile]]
 deps = ["Libdl", "Printf", "Zlib_jll"]
@@ -1060,9 +1060,9 @@ version = "1.2.11+9"
 
 [[Zygote]]
 deps = ["AbstractFFTs", "ArrayLayouts", "DiffRules", "FillArrays", "ForwardDiff", "IRTools", "InteractiveUtils", "LinearAlgebra", "MacroTools", "NNlib", "NaNMath", "Random", "Requires", "SpecialFunctions", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "1ccbfbe8930376e31752b812daa2532c723dc332"
+git-tree-sha1 = "014e1f208bd5b43e26448ca31d971053f58bc20a"
 uuid = "e88e6eb3-aa80-5325-afca-941959d7151f"
-version = "0.4.13"
+version = "0.4.15"
 
 [[ZygoteRules]]
 deps = ["MacroTools"]
