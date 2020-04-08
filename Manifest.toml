@@ -464,10 +464,12 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LyceumBase]]
-deps = ["Adapt", "BangBang", "BenchmarkTools", "Dates", "Distributions", "DocStringExtensions", "ElasticArrays", "EllipsisNotation", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "MacroTools", "Parameters", "Pkg", "Random", "Reexport", "Setfield", "Shapes", "StaticArrays", "Statistics", "Test", "TimeZones", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
-git-tree-sha1 = "680cdfbe11f9b029c65f36932fec66d40238b9bd"
+deps = ["Adapt", "AutoHashEquals", "AxisArrays", "BangBang", "BenchmarkTools", "Dates", "Distributions", "DocStringExtensions", "FastClosures", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "LyceumCore", "LyceumDevTools", "MacroTools", "Parameters", "Pkg", "Random", "Reexport", "Setfield", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
+git-tree-sha1 = "5185d0f6586a82f7021150582e6bd9ca13ae9bed"
+repo-rev = "refactor"
+repo-url = "https://github.com/Lyceum/LyceumBase.jl.git"
 uuid = "db31fed1-ca1e-4084-8a49-12fae1996a55"
-version = "0.2.1"
+version = "0.3.0-DEV"
 
 [[LyceumCore]]
 deps = ["StaticNumbers"]
@@ -482,10 +484,12 @@ uuid = "fd23256c-5a67-41c4-8f5a-c8cf5526e505"
 version = "0.1.0"
 
 [[LyceumMuJoCo]]
-deps = ["Distances", "Distributions", "DocStringExtensions", "LinearAlgebra", "LyceumBase", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "Statistics", "UnsafeArrays"]
-git-tree-sha1 = "4138207cd721d925142604fa83dc012b22bdb5e9"
+deps = ["Distances", "Distributions", "DocStringExtensions", "LinearAlgebra", "LyceumBase", "LyceumCore", "LyceumDevTools", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "Statistics", "UnsafeArrays"]
+git-tree-sha1 = "53c9683880e07f7ca086100803dbd732f31a9d33"
+repo-rev = "refactor"
+repo-url = "https://github.com/Lyceum/LyceumMuJoCo.jl.git"
 uuid = "48b9757e-04b8-4dbf-b6ed-75c13d9e4026"
-version = "0.2.1"
+version = "0.3.0-DEV"
 
 [[MLDataPattern]]
 deps = ["LearnBase", "MLLabelUtils", "Random", "SparseArrays", "StatsBase"]
