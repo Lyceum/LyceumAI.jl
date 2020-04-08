@@ -184,7 +184,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
-        batch = @closure sample(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, s, o
+        batch = @closure sample(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, o
             sample!(a, policy, o)
         end
     end

@@ -46,7 +46,7 @@
     npasses = 0
     for (i, state) in enumerate(npg)
         (npasses > 5 || i > 250) && break
-        batch = sample(envsampler, N, reset! = randreset!, Hmax=Hmax) do a, s, o
+        batch = sample(envsampler, N, reset! = randreset!, Hmax=Hmax) do a, o
             a .= policy(o)
         end
         npasses = mean(τ -> τ.R[end], batch) > 0.95 ? npasses + 1 : 0
