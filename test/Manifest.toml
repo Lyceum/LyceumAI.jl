@@ -458,9 +458,17 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
+[[LyceumAI]]
+deps = ["Base64", "Distances", "DocStringExtensions", "EllipsisNotation", "FastClosures", "Flux", "Future", "IterativeSolvers", "LearnBase", "LinearAlgebra", "LyceumBase", "LyceumCore", "LyceumDevTools", "LyceumMuJoCo", "MLDataPattern", "MacroTools", "MuJoCo", "MuJoCo_jll", "OrderedCollections", "Parameters", "Random", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "UnsafeArrays", "Zygote"]
+path = ".."
+uuid = "6917c76a-ac01-4302-a33e-8c456ab70f71"
+version = "0.3.0-DEV"
+
 [[LyceumBase]]
-deps = ["Adapt", "AutoHashEquals", "AxisArrays", "BangBang", "BenchmarkTools", "Dates", "Distributions", "DocStringExtensions", "FastClosures", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "LyceumCore", "LyceumDevTools", "MacroTools", "Parameters", "Pkg", "Random", "Reexport", "Setfield", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
-path = "/home/colinxs/workspace/juliadev/LyceumBase"
+deps = ["Adapt", "AutoHashEquals", "AxisArrays", "BangBang", "BenchmarkTools", "Dates", "Distributions", "DocStringExtensions", "FastClosures", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "LyceumCore", "LyceumDevTools", "MacroTools", "Parameters", "Pkg", "Printf", "Random", "Reexport", "Setfield", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
+git-tree-sha1 = "b20dbb8c634f9ebca59ca012ca7a754998578001"
+repo-rev = "refactor"
+repo-url = "https://github.com/Lyceum/LyceumBase.jl.git"
 uuid = "db31fed1-ca1e-4084-8a49-12fae1996a55"
 version = "0.3.0-DEV"
 
@@ -474,7 +482,7 @@ version = "0.1.1"
 
 [[LyceumDevTools]]
 deps = ["Base64", "BenchmarkTools", "Dates", "Distributed", "GitHub", "HTTP", "JuliaFormatter", "LibGit2", "LyceumBase", "LyceumCore", "MacroTools", "Markdown", "Parameters", "Pkg", "PkgTemplates", "Random", "Reexport", "Registrator", "RegistryTools", "Shapes", "Test"]
-git-tree-sha1 = "11e07d93fc2f8cc95ce2e3d58701e7c3cea65de7"
+git-tree-sha1 = "aab09925faa478638d28a05e238e176ceaafc02c"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumDevTools.jl.git"
 uuid = "fd23256c-5a67-41c4-8f5a-c8cf5526e505"
@@ -482,7 +490,9 @@ version = "0.4.0"
 
 [[LyceumMuJoCo]]
 deps = ["Distances", "Distributions", "DocStringExtensions", "LinearAlgebra", "LyceumBase", "LyceumCore", "LyceumDevTools", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "Statistics", "UnsafeArrays"]
-path = "/home/colinxs/workspace/juliadev/LyceumMuJoCo"
+git-tree-sha1 = "53c9683880e07f7ca086100803dbd732f31a9d33"
+repo-rev = "refactor"
+repo-url = "https://github.com/Lyceum/LyceumMuJoCo.jl.git"
 uuid = "48b9757e-04b8-4dbf-b6ed-75c13d9e4026"
 version = "0.3.0-DEV"
 
@@ -743,7 +753,7 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[SpecialArrays]]
 deps = ["Adapt", "DocStringExtensions", "LyceumCore", "LyceumDevTools", "MacroTools", "Requires", "Shapes", "StaticNumbers", "UnsafeArrays", "Zygote"]
-git-tree-sha1 = "7ccdb6469484b8dee04262b1c3e988a03c91146e"
+git-tree-sha1 = "ec469d3e833a06be6c5ab5cfc0b3d7e3f13c2dd4"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/SpecialArrays.jl.git"
 uuid = "dced3ab1-7816-4ad4-9c7c-956aa26e9cbf"
