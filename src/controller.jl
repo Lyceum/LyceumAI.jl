@@ -44,7 +44,7 @@ function Base.iterate(it::ControllerIterator, t::Int = 1)
     if mod(t, it.plotiter) == 0
         rew = @views Tools.Line(it.trajectory.rewards[1:t], "Reward")
         eval = @views Tools.Line(it.trajectory.evaluations[1:t], "Eval")
-        plt = Tools.expplot(
+        plt = Tools.termplot(
             rew,
             eval,
             title = "ControllerIterator Iteration=$t/$(it.T)",

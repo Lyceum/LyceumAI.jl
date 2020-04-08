@@ -7,9 +7,7 @@ using Flux
 using LyceumBase
 using LyceumMuJoCo
 using LinearAlgebra
-using UniversalLogger
 using LyceumAI
-
 
 function testrollout(getaction!, env::AbstractEnvironment, T)
     s = Array(undef, statespace(env))

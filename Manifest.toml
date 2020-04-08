@@ -230,11 +230,6 @@ git-tree-sha1 = "88bb0edb352b16608036faadcc071adda068582a"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.1"
 
-[[ElasticArrays]]
-git-tree-sha1 = "5b5b7cb8cba44bcf337b8af0a1f3e57c89468660"
-uuid = "fdbdab4c-e67f-52f5-8c3f-e7b388dad3d4"
-version = "1.0.0"
-
 [[EllipsisNotation]]
 git-tree-sha1 = "65dad386e877850e6fce4fc77f60fe75a468ce9d"
 uuid = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
@@ -465,29 +460,29 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LyceumBase]]
 deps = ["Adapt", "AutoHashEquals", "AxisArrays", "BangBang", "BenchmarkTools", "Dates", "Distributions", "DocStringExtensions", "FastClosures", "Future", "InteractiveUtils", "JLSO", "LibGit2", "LinearAlgebra", "Logging", "LyceumCore", "LyceumDevTools", "MacroTools", "Parameters", "Pkg", "Random", "Reexport", "Setfield", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "UnicodePlots", "UniversalLogger", "UnsafeArrays"]
-git-tree-sha1 = "5185d0f6586a82f7021150582e6bd9ca13ae9bed"
-repo-rev = "refactor"
-repo-url = "https://github.com/Lyceum/LyceumBase.jl.git"
+path = "/home/colinxs/workspace/juliadev/LyceumBase"
 uuid = "db31fed1-ca1e-4084-8a49-12fae1996a55"
 version = "0.3.0-DEV"
 
 [[LyceumCore]]
-deps = ["StaticNumbers"]
-git-tree-sha1 = "28ace31199a3f42d6f0257921710babc95cbe306"
+deps = ["LyceumDevTools", "StaticNumbers"]
+git-tree-sha1 = "7cb9c088a42228421b6d553efc88fe8f65fa368c"
+repo-rev = "master"
+repo-url = "https://github.com/Lyceum/LyceumCore.jl.git"
 uuid = "e5bd5517-2193-49f0-ba9c-d5a8508cb639"
 version = "0.1.1"
 
 [[LyceumDevTools]]
-deps = ["Base64", "BenchmarkTools", "Dates", "GitHub", "HTTP", "JuliaFormatter", "LibGit2", "MacroTools", "Markdown", "Parameters", "Pkg", "PkgTemplates", "Registrator", "RegistryTools"]
-git-tree-sha1 = "ceba39ee501aaaf3c4ff7031cbb541294061bcf7"
+deps = ["Base64", "BenchmarkTools", "Dates", "Distributed", "GitHub", "HTTP", "JuliaFormatter", "LibGit2", "LyceumBase", "LyceumCore", "MacroTools", "Markdown", "Parameters", "Pkg", "PkgTemplates", "Random", "Reexport", "Registrator", "RegistryTools", "Shapes", "Test"]
+git-tree-sha1 = "11e07d93fc2f8cc95ce2e3d58701e7c3cea65de7"
+repo-rev = "master"
+repo-url = "https://github.com/Lyceum/LyceumDevTools.jl.git"
 uuid = "fd23256c-5a67-41c4-8f5a-c8cf5526e505"
-version = "0.1.0"
+version = "0.4.0"
 
 [[LyceumMuJoCo]]
 deps = ["Distances", "Distributions", "DocStringExtensions", "LinearAlgebra", "LyceumBase", "LyceumCore", "LyceumDevTools", "MuJoCo", "Random", "Reexport", "Shapes", "StaticArrays", "Statistics", "UnsafeArrays"]
-git-tree-sha1 = "53c9683880e07f7ca086100803dbd732f31a9d33"
-repo-rev = "refactor"
-repo-url = "https://github.com/Lyceum/LyceumMuJoCo.jl.git"
+path = "/home/colinxs/workspace/juliadev/LyceumMuJoCo"
 uuid = "48b9757e-04b8-4dbf-b6ed-75c13d9e4026"
 version = "0.3.0-DEV"
 
@@ -565,9 +560,9 @@ version = "2.0.0+1"
 
 [[Mustache]]
 deps = ["Printf", "Tables"]
-git-tree-sha1 = "2e11fc5de3a01d23482a257e22009ddaab058d9a"
+git-tree-sha1 = "f39de3a12232eb47bd0629b3a661054287780276"
 uuid = "ffc61752-8dc7-55ee-8c37-f3e9cdd09e70"
-version = "1.0.2"
+version = "0.5.13"
 
 [[Mux]]
 deps = ["AssetRegistry", "Base64", "HTTP", "Hiccup", "Lazy", "Pkg", "Sockets", "Test", "WebSockets"]
@@ -682,10 +677,10 @@ uuid = "189a3867-3050-52da-a836-e630ba90ab69"
 version = "0.2.0"
 
 [[Registrator]]
-deps = ["AutoHashEquals", "Base64", "Dates", "Distributed", "FileWatching", "GitForge", "GitHub", "HTTP", "JSON", "LibGit2", "Logging", "MbedTLS", "Mustache", "Mux", "Pkg", "Serialization", "Sockets", "TimeToLive", "UUIDs", "ZMQ"]
-git-tree-sha1 = "0dc917d3370553aebe50b80bdff9142e665a021c"
+deps = ["AutoHashEquals", "Base64", "Dates", "Distributed", "FileWatching", "GitForge", "GitHub", "HTTP", "JSON", "LibGit2", "Logging", "MbedTLS", "Mustache", "Mux", "Pkg", "RegistryTools", "Serialization", "Sockets", "TimeToLive", "UUIDs", "ZMQ"]
+git-tree-sha1 = "722d249d1f29be9281dafd14bdf1dd5cb25cf225"
 uuid = "4418983a-e44d-11e8-3aec-9789530b3b3e"
-version = "1.0.0"
+version = "1.1.0"
 
 [[RegistryTools]]
 deps = ["AutoHashEquals", "LibGit2", "Pkg", "UUIDs"]
@@ -748,7 +743,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[SpecialArrays]]
 deps = ["Adapt", "DocStringExtensions", "LyceumCore", "LyceumDevTools", "MacroTools", "Requires", "Shapes", "StaticNumbers", "UnsafeArrays", "Zygote"]
-git-tree-sha1 = "c2fb9f47d757c0e76b529eca454fc8d2adb28316"
+git-tree-sha1 = "7ccdb6469484b8dee04262b1c3e988a03c91146e"
+repo-rev = "master"
+repo-url = "https://github.com/Lyceum/SpecialArrays.jl.git"
 uuid = "dced3ab1-7816-4ad4-9c7c-956aa26e9cbf"
 version = "0.1.1"
 
@@ -813,10 +810,10 @@ deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[TimeToLive]]
-deps = ["Dates"]
-git-tree-sha1 = "1f1389007d16385ec02e497bef6c2caffba99b65"
+deps = ["Dates", "Test"]
+git-tree-sha1 = "43defcaf72b89b047f11b778cd83b71ac3e418b0"
 uuid = "37f0c46e-897f-50ef-b453-b26c3eed3d6c"
-version = "0.3.0"
+version = "0.2.0"
 
 [[TimeZones]]
 deps = ["Dates", "EzXML", "Mocking", "Printf", "Serialization", "Unicode"]
