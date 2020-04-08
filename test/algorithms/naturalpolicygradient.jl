@@ -1,5 +1,5 @@
 @testset "NaturalPolicyGradient (PointMass)" begin
-    tseed!(2)
+    tseed!(1)
     etype = LyceumMuJoCo.PointMass
 
     e = etype()
@@ -39,10 +39,17 @@
         N=N,
     )
 
-    meanR = Float64[]
+    envsampler = EnvironmentSampler(n -> tconstruct(etype, n))
+
+    # Test that the terminal reward for the mean policy is > 0.95 for at least 5
+    # iterations in a row, in at most 250 iterations.
+    npasses = 0
     for (i, state) in enumerate(npg)
-        i > 50 && break
-        push!(meanR, mean(τ -> τ.R[end], state.batch.mean))
+        (npasses > 5 || i > 250) && break
+        batch = sample(envsampler, N, reset! = randreset!, Hmax=Hmax) do a, s, o
+            a .= policy(o)
+        end
+        npasses = mean(τ -> τ.R[end], batch) > 0.95 ? npasses + 1 : 0
     end
-    @test mean(meanR[(end-10):end]) > 0.85
+    @test npasses > 5
 end
