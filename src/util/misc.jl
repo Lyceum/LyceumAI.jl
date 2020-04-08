@@ -1,7 +1,6 @@
 export discount,
        GAEadvantages!,
        rollout!,
-       threadedforeach,
        mse,
        nstep_returns!
 
