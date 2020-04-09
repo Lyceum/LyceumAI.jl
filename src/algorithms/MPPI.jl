@@ -30,7 +30,7 @@ struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
 
         ssp = statespace(first(envs))
         asp = actionspace(first(envs))
-        osp = obsspace(first(envs))
+        osp = observationspace(first(envs))
 
         if !(asp isa Shapes.AbstractVectorShape)
             throw(ArgumentError("actionspace(env) must be a Shape.AbstractVectorShape"))
@@ -194,14 +194,14 @@ function perturbedrollout!(m::MPPI{DT,nu}, state, k, tid) where {DT,nu}
 
         step!(env)
 
-        getobs!(obsbuf, env)
+        getobservation!(obsbuf, env)
         getstate!(statebuf, env)
         reward = getreward(statebuf, action_t, obsbuf, env)
 
         discountedreward += reward * discountfactor
         discountfactor *= m.gamma
     end # env at t=H+1
-    getobs!(obsbuf, env)
+    getobservation!(obsbuf, env)
     terminalvalue = convert(DT, m.value(obsbuf))
     @inbounds m.trajectorycosts[k] = -(discountedreward + terminalvalue * discountfactor)
     return m

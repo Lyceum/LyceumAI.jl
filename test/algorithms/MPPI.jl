@@ -1,5 +1,5 @@
 @testset "MPPI (PointMass)" begin
-    seed_threadrngs!(1)
+    tseed!(1)
     etype = LyceumMuJoCo.PointMass
     env = etype()
     T = 300
@@ -18,5 +18,5 @@
     experiment = ControllerIterator(f, env; T=T, plotiter=T+1)
     for x in experiment
     end
-    @test abs(geteval(env)) < 0.001
+    @test isapprox(getreward(env), 1, atol=0.001)
 end

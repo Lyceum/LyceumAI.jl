@@ -39,7 +39,7 @@ Float32.
 
 In the following explanation of the `NaturalPolicyGradient` constructor, we use the
 following notation/definitions:
-- `dim_o = length(obsspace(env))`
+- `dim_o = length(observationspace(env))`
 - `dim_a = length(actionspace(env))`
 - "terminal" (e.g. terminal observation) refers to timestep `T + 1` for a length `T` trajectory.
 
@@ -141,7 +141,7 @@ function NaturalPolicyGradient{DT}(
     0 < max_cg_iter || throw(ArgumentError("max_cg_iter must be > 0"))
     0 < cg_tol || throw(ArgumentError("cg_tol must be > 0"))
 
-    envsampler = EnvSampler(env_tconstructor, dtype=DT)
+    envsampler = EnvironmentSampler(env_tconstructor, dtype = DT)
     fvp_op = FVP(z(np, N), true) # `true` computes FVPs with 1/N normalization
     cg_op = CG{DT}(np, N)
 
@@ -176,56 +176,48 @@ end
 
 
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
+
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
     @unpack vanilla_pg, natural_pg = npg
     @unpack advantages_vec, returns_vec = npg
     @unpack fvp_op, cg_op = npg
 
-    meanbatch = @closure sample!(randreset!, envsampler, npg.Nmean, Hmax=Hmax) do action, state, observation
-        action .= policy(observation)
-    end
-    meanbatch = deepcopy(meanbatch) # TODO cxs
-
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
-        batch = @closure sample!(
-            randreset!,
-            envsampler,
-            N,
-            Hmax = Hmax,
-        ) do action, state, observation
-            sample!(action, policy, observation)
+        batch = @closure sample(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, o
+            sample!(a, policy, o)
         end
     end
 
-    @unpack observations, terminal_observations, actions, rewards, evaluations = batch
-    obs_mat     = flatview(observations)
-    termobs_mat = flatview(terminal_observations)
-    act_mat     = flatview(actions)
-    advantages  = batchlike(rewards, advantages_vec)
-    returns     = batchlike(rewards, returns_vec)
-    trajlengths = map(length, rewards)
+    @unpack O, A, R, oT = batch
+    O_mat = SpecialArrays.flatten(O)::AbstractMatrix
+    A_mat = SpecialArrays.flatten(A)::AbstractMatrix
+    oT_mat = SpecialArrays.flatten(oT)::AbstractMatrix
+    advantages  = batchlike(advantages_vec, batch)
+    returns     = batchlike(returns_vec, batch)
 
     if npg.value_feature_op !== nothing
-        feat_mat = npg.value_feature_op(observations)
-        termfeat_mat = npg.value_feature_op(termobs_mat, trajlengths)
+        # TODO change this
+        feat_mat = npg.value_feature_op(O_mat)
+        termfeat_mat = npg.value_feature_op(oT_mat, map(length, batch))
     else
-        feat_mat = obs_mat
-        termfeat_mat = termobs_mat
+        feat_mat = O_mat
+        termfeat_mat = oT_mat
     end
 
     # Get baseline and terminal values for the current batch using the last value function
     baseline_vec = dropdims(value(feat_mat), dims = 1)
-    baseline = batchlike(rewards, baseline_vec)
+    baseline = batchlike(baseline_vec, batch)
     termvals = dropdims(value(termfeat_mat), dims = 1)
+    R = batchlike(R, batch)
 
     # Compute normalized GAE advantages and returns
-    GAEadvantages!(advantages, baseline, rewards, termvals, gamma, gaelambda)
+    GAEadvantages!(advantages, baseline, R, termvals, gamma, gaelambda)
     npg.whiten_advantages && whiten!(advantages_vec)
     if npg.bootstrapped_nstep_returns
-        bootstrapped_nstep_returns!(returns, rewards, termvals, gamma)
+        bootstrapped_nstep_returns!(returns, R, termvals, gamma)
     else
-        nstep_returns!(returns, rewards, gamma)
+        nstep_returns!(returns, R, gamma)
     end
 
     # Fit value function to the current batch
@@ -235,8 +227,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     elapsed_gradll = @elapsed grad_loglikelihood!(
                                                   fvp_op.glls,
                                                   policy,
-                                                  act_mat,
-                                                  obs_mat,
+                                                  A_mat,
+                                                  O_mat,
                                                  )
 
     # Compute the "vanilla" policy gradient as 1/T * grad_loglikelihoods * advantages_vec
@@ -268,37 +260,34 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     flatupdate!(policy, natural_pg)
 
     result = (
-        iter = i,
-        elapsed_sampled = elapsed_sample,
-        elapsed_gradll = elapsed_gradll,
-        elapsed_vpg = elapsed_vpg,
-        elapsed_cg = elapsed_cg,
-        elapsed_valuefit = elapsed_valuefit,
-
-        meantraj_reward = mean(sum, meanbatch.rewards),
-        stoctraj_reward = mean(sum, batch.rewards),
-
-        meantraj_eval = mean(sum, meanbatch.evaluations),
-        stoctraj_eval = mean(sum, batch.evaluations),
-
-        meantraj_length = mean(length, meanbatch),
-        stoctraj_length = mean(length, batch),
-
-        meantraj_ctrlnorm = mean(traj -> mean(norm, eachcol(traj)), meanbatch.actions),
-        stoctraj_ctrlnorm = mean(traj -> mean(norm, eachcol(traj)), batch.actions),
-
-        meanterminal_reward = mean(last, meanbatch.rewards),
-        stocterminal_reward = mean(last, batch.rewards),
-
-        meanterminal_eval = mean(last, meanbatch.evaluations),
-        stocterminal_eval = mean(last, batch.evaluations),
-
-        stocbatch = deepcopy(batch),
-        meanbatch = deepcopy(meanbatch),
-
+        elapsed = (
+            sampled = elapsed_sample,
+            gradll = elapsed_gradll,
+            vpg = elapsed_vpg,
+            cg = elapsed_cg,
+            valuefit = elapsed_valuefit,
+        ),
+        batch = batch,
         vpgnorm = norm(vanilla_pg),
         npgnorm = norm(natural_pg),
     )
 
     return result, i + 1
+end
+
+
+
+@inline function batchlike(A::AbsVec, B::AbsVec{<:AbsVec}) # TODO document
+    offsets = Vector{Int}(undef, length(B) + 1)
+    offsets[1] = 0
+    for i in LinearIndices(B)
+        offset = offsets[i] + length(B[i])
+        checkbounds(A, offset)
+        offsets[i + 1] = offset
+    end
+    BatchedVector(A, offsets)
+end
+
+@inline function batchlike(A::AbsVec, B::LyceumBase.TrajectoryBuffer) # TODO document
+    BatchedVector(A, copy(B.offsets))
 end

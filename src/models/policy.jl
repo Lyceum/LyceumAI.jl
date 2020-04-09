@@ -69,7 +69,7 @@ end
 Treating `policy` as a deterministic policy, compute the mean action of `policy`,
 conditioned on `feature`, and store it in `action`.
 """
-function getaction!(action::AbsVec, policy::DiagGaussianPolicy, feature::AbsVec)
+function LyceumBase.getaction!(action::AbsVec, policy::DiagGaussianPolicy, feature::AbsVec)
     action .= action .* exp.(policy.logstd) .+ policy(feature)
 end
 
