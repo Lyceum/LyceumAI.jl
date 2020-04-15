@@ -190,9 +190,9 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     @unpack O, A, R, oT = batch
-    O_mat = SpecialArrays.flatten(O)::AbstractMatrix
-    A_mat = SpecialArrays.flatten(A)::AbstractMatrix
-    oT_mat = SpecialArrays.flatten(oT)::AbstractMatrix
+    O_mat = SpecialArrays.flatview(O)::AbstractMatrix
+    A_mat = SpecialArrays.flatview(A)::AbstractMatrix
+    oT_mat = SpecialArrays.flatview(oT)::AbstractMatrix
     advantages  = batchlike(advantages_vec, batch)
     returns     = batchlike(returns_vec, batch)
 
