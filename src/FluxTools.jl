@@ -1,9 +1,10 @@
-#module FluxTools
+module FluxTools
 
 using Base: IdSet, promote_eltype
-using Flux: Flux, outdims, fmap, functor, params
-using Zygote: Zygote, Params, Grads, Buffer, gradient, pullback, sensitivity
+using Flux: Flux, fmap, functor, params
 using LyceumCore
+using Zygote: Zygote, Params, Grads, Buffer, gradient, pullback, sensitivity
+using RecursiveArrayTools: ArrayPartition
 
 
 export destructure, restructure
@@ -38,39 +39,22 @@ function restructure(m, P::NumVec, ps = params(m))
 end
 
 
-function destructureview(m, ps = params(m))
-    let ps = Params(ps)
-        return reduce(vcat, vec.(copy(ps.order::Buffer))), P -> restructureview(m, P, ps)
-    end
-end
-
-function restructureview(m, P::NumVec, ps = params(m))
-    offset = firstindex(P)
-    m = pmap(m, ps) do x
-        x = reshape(view(P, offset:(offset + length(x) - 1)), size(x))
-        offset += length(x)
-        return x
-    end
-    offset == length(P) + 1 || throw(BoundsError())
-    return m
-end
-
-
 ####
 #### Params
 ####
-
-paramvec(ps::Params) = reduce(vcat, vec.(ps))
-
-paramvecview(ps::Params) = ArrayPartition(copy(ps.order)...)
 
 parameltype(ps::Params) = foldl(promote_eltype, ps)
 
 paramlength(ps::Params) = sum(p -> length(p)::Int, ps)
 
+paramvec(ps::Params) = reduce(vcat, vec.(ps))
+
+paramvecview(ps::Params) = ArrayPartition(copy(ps.order)...)
+
 copyparams!(ps1::Params, ps2::Params) = _copyto!(ps1, ps2)
 copyparams!(ps::Params, P::NumVec) = _copyto!(ps, P)
 copyparams!(P::NumVec, ps::Params) = _copyto!(P, ps)
+
 
 function updateparams!(ps::Params, gs::Grads)
     for p in ps
@@ -119,13 +103,13 @@ end
 #### Grads
 ####
 
-gradvec(gs::Grads, ps::Params) = reduce(vcat, vec.(extractgrads(gs, ps)))
-
-gradvecview(gs::Grads, ps::Params) = ArrayPartition(extractgrads(gs, ps)...)
-
 gradeltype(gs::Grads, ps::Params) = foldl(promote_eltype, extractgrads(gs, ps))
 
 gradlength(gs::Grads, ps::Params) = sum(g -> length(g)::Int, extractgrads(gs, ps))
+
+gradvec(gs::Grads, ps::Params) = reduce(vcat, vec.(extractgrads(gs, ps)))
+
+gradvecview(gs::Grads, ps::Params) = ArrayPartition(extractgrads(gs, ps)...)
 
 copygrads!(G::NumVec, gs::Grads, ps::Params) = _copyto!(G, extractgrads(gs, ps))
 copygrads!(gs::Grads, G::NumVec, ps::Params) = _copyto!(extractgrads(gs, ps), G)
@@ -171,4 +155,4 @@ function _copyto!(V::NumVec, xs)
 end
 
 
-#end # module
+end # module

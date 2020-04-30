@@ -10,11 +10,10 @@ using Distributions: Distributions, MvNormal, pdf, pdf!, logpdf, logpdf!
 using LyceumCore
 using Random: Random, AbstractRNG, default_rng
 using LyceumCore
-using MacroTools: @forward
+using MacroTools: MacroTools, @forward
 using RecursiveArrayTools
 using Statistics: Statistics, mean, var, cov, cor
 using StatsBase: StatsBase, cor, entropy
-
 
 
 include("FluxTools.jl")
@@ -25,10 +24,6 @@ const AbsVecOrMat{T} = Union{AbstractVector{T},AbstractMatrix{T}}
 #### Model Interface
 ####
 
-#abstract type AbstractModel end
-#@mustimplement (m::AbstractModel)(xs...)
-#@mustimplement Flux.params(m::AbstractModel)
-#@mustimplement Flux.functor(m::AbstractModel)
 # (m)(xs...)
 # Flux.params(m)
 # Flux.functor(m)
@@ -52,16 +47,13 @@ updateparams!(m, gs::GradTypes) = updateparams!(params(m), gs)
 ####
 
 abstract type AbstractPolicy end
+abstract type AbstractDeterministicPolicy <: AbstractPolicy end
+abstract type AbstractStochasticPolicy <: AbstractPolicy end
 
 #@mustimplement (π::AbstractPolicy)(xs...)
 #@mustimplement Flux.params(π::AbstractPolicy)
 #@mustimplement Flux.functor(π::AbstractPolicy)
 
-
-abstract type AbstractDeterministicPolicy <: AbstractPolicy end
-
-
-abstract type AbstractStochasticPolicy <: AbstractPolicy end
 
 @mustimplement condition(π::AbstractStochasticPolicy, o::AbsVec)::Distributions.MultivariateDistribution
 
@@ -152,6 +144,29 @@ end
 Random.rand!(A::AbsMat, π::AbstractStochasticPolicy, O::AbsMat) = rand!(default_rng(), A, π, O)
 
 
+
+struct StochasticPolicy{DistType,Params<:Tuple} <: AbstractStochasticPolicy
+    params::Params
+end
+
+#function StochasticPolicy(::Type{DistType}, params::Params) where {DistType,Params<:Tuple}
+#    StochasticPolicy{DistType,Params}(params)
+#end
+#StochasticPolicy(T::Type, params...) = StochasticPolicy(T, params)
+
+#condition(π::StochasticPolicy, o::AbsVec) = _condition(π, o)
+#Base.@generated function _condition(π::StochasticPolicy{DistType,Params}, o::AbsVec) where {DistType,Params}
+#    N = length(Params.parameters)
+#    argexprs = map(1:fieldcount(Params)) do i
+#        fieldtype(Params, i) <: AbsVec ? :(π.params[$i]) : :(π.params[$i](o))
+#    end
+#    MacroTools.@q begin
+#        @_inline_meta
+#        $(Expr(:call, DistType, argexprs...))
+#    end
+#end
+
+
 ####
 #### DiagonalGaussianPolicy
 ####
@@ -174,17 +189,19 @@ Statistics.mean(π::DiagonalGaussianPolicy, o::AbsVec) = π.mean(o)
 Statistics.mean(π::DiagonalGaussianPolicy, O::AbsMat) = π.mean(O)
 
 
-function Distributions.logpdf(π::DiagonalGaussianPolicy, a::AbsVec, o::AbsVec)
-    _mvnormal_logpdf(mean(π, o), π.logstd(o), a)
-end
-function Distributions.logpdf(π::DiagonalGaussianPolicy, A::AbsMat, O::AbsMat)
-    _mvnormal_logpdf(mean(π, O), π.logstd(O), A)
-end
+#function Distributions.logpdf(π::DiagonalGaussianPolicy, o::AbsVec, a::AbsVec)
+#    _mvnormal_logpdf(mean(π, o), π.logstd(o), a)
+#end
+#function Distributions.logpdf(π::DiagonalGaussianPolicy, O::AbsMat, A::AbsMat)
+#    _mvnormal_logpdf(mean(π, O), π.logstd(O), A)
+#end
 
-function Distributions.logpdf(π::FixedDiagonalGaussianPolicy, a::AbsVec, o::AbsVec)
+function Distributions.logpdf(π::FixedDiagonalGaussianPolicy, o::AbsVec, a::AbsVec)
+    #d = MvNormal(mean(π, o), exp.(π.logstd))
+    #logpdf(d, a)
     _mvnormal_logpdf(mean(π, o), π.logstd, a)
 end
-function Distributions.logpdf(π::FixedDiagonalGaussianPolicy, A::AbsMat, O::AbsMat)
+function Distributions.logpdf(π::FixedDiagonalGaussianPolicy, O::AbsMat, A::AbsMat)
     _mvnormal_logpdf(mean(π, O), π.logstd, A)
 end
 
@@ -204,24 +221,68 @@ end
 
 
 
-
 end # module
 
 using Flux
-using Distributions
+using Flux: @functor, params, outdims, update!
+using Flux.Zygote: Params, Grads
+using DistributionsAD
 
-m = Chain(Dense(2,128),Dense(128,128),Dense(128,1))
-x=rand(2,1)
-ps=Flux.params(m)
-gs = gradient(() -> sum(m(x)), Flux.params(m))
-G = M.gradvec(gs, ps)
+using Distributions: Distributions, MvNormal, pdf, pdf!, logpdf, logpdf!
+using LyceumCore
+using Random: Random, AbstractRNG, default_rng
+using LyceumCore
+using MacroTools: @forward
+using RecursiveArrayTools
+using Statistics: Statistics, mean, var, cov, cor
+using StatsBase: StatsBase, cor, entropy
 
-pi = M.DiagonalGaussianPolicy(Chain(Dense(2,3),Dense(3,3,tanh),Dense(3, 3)), Float32[0.1,0.2,0.3])
-ps=Flux.params(pi)
-O = rand(2,100)
-A = rand(3,100)
-o = O[:, 1]    #
-a = A[:, 1]
 
-v=pdf(pi, o, a)
-m=pdf(pi, O, A)
+m = Dense(2, 3)
+ls = ones(3) .* 0.1
+O = rand(2,5)
+A = rand(3,5)
+o = O[:,1]
+a = A[:,1]
+pi1 = M.StochasticPolicy(MvNormal, (m, exp.(ls)))
+pi2 = M.DiagonalGaussianPolicy(m, ls)
+
+ll1 = logpdf(pi1, o, a)
+ll2 = logpdf(pi2, o, a)
+@btime logpdf($pi1, $o, $a)
+@btime logpdf($pi2, $o, $a)
+
+
+
+
+
+
+
+
+
+
+
+
+m = Chain(Dense(2,128), Dense(128,128), Dense(128, 1))
+N = 2
+X = rand(2,N);
+ps = params(m)
+
+function copygrads(src::Grads)
+    dest = Grads(Base.IdDict{Any,Any}())
+    for (p, g) in src.grads
+        dest.grads[p] = copy(g)
+    end
+    dest
+end
+
+f1(m, X) = map(x -> gradient(() -> first(m(x)), Flux.params(m)), eachcol(X))
+
+function f2(m, X)
+    N = size(X, 2)
+    y, back = Zygote.pullback(() -> m(X), params(m))
+    gs = map(axes(X, 2)) do i
+        copygrads(back(reshape(Flux.OneHotVector(i, N), (1,N))))
+    end
+    gs
+end
