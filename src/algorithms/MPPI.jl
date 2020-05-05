@@ -12,6 +12,7 @@ struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
     noise::Array{DT,3}
     covar_ul::Covar
     meantrajectory::Matrix{DT}
+    clamps::SMatrix{2, nu, DT}
     trajectorycosts::Vector{DT}
     obsbuffers::Vector{Obs}
     statebuffers::Vector{State}
@@ -25,12 +26,14 @@ struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
         gamma::Real,
         value,
         initfn!,
+        clamps
     ) where {DT<:AbstractFloat}
         envs = [e for e in env_tconstructor(Threads.nthreads())]
 
         ssp = statespace(first(envs))
         asp = actionspace(first(envs))
         osp = obsspace(first(envs))
+        nu = length(asp)
 
         if !(asp isa Shapes.AbstractVectorShape)
             throw(ArgumentError("actionspace(env) must be a Shape.AbstractVectorShape"))
@@ -42,6 +45,11 @@ struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
 
         covar_ul = convert(AbsMat{DT}, cholesky(covar).UL)
         meantrajectory = zeros(DT, asp, H)
+        if clamps == nothing
+            clamps = SMatrix{2, nu, DT}(vcat(fill(typemin(DT), 1, nu), fill(typemax(DT), 1, nu)))
+        elseif typeof(clamps) <: SArray == false
+            clamps = SMatrix{2, nu, DT}(clamps)
+        end
         trajectorycosts = zeros(DT, K)
         noise = zeros(DT, asp, H, K)
         obsbuffers = [allocate(osp) for _ = 1:Threads.nthreads()]
@@ -49,7 +57,7 @@ struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
 
         new{
             DT,
-            length(asp),
+            nu,
             typeof(covar_ul),
             typeof(value),
             eltype(envs),
@@ -67,6 +75,7 @@ struct MPPI{DT<:AbstractFloat,nu,Covar<:AbsMat{DT},Value,Env,Init,Obs,State}
             noise,
             covar_ul,
             meantrajectory,
+            clamps,
             trajectorycosts,
             obsbuffers,
             statebuffers
@@ -116,11 +125,19 @@ function MPPI{DT}(;
     gamma = 1,
     value = zerofn,
     initfn! = default_initfn!,
+    clamps = nothing 
 ) where {DT<:AbstractFloat}
-    MPPI{DT}(env_tconstructor, K, H, covar, lambda, gamma, value, initfn!)
+    MPPI{DT}(env_tconstructor, K, H, covar, lambda, gamma, value, initfn!, clamps)
 end
 
 MPPI(args...; kwargs...) = MPPI{Float32}(args...; kwargs...)
+
+function _clampctrl!(actions::Array{DT, 3}, clamps::AbstractArray) where DT<:AbstractFloat
+    nu, H, K = size(actions)
+    for k = 1:K, t = 1:H, u = 1:nu
+        @inbounds actions[u, t, k] = clamp(actions[u,t,k], clamps[1,u], clamps[2,u]) 
+    end
+end
 
 """
     $(TYPEDSIGNATURES)
@@ -157,6 +174,9 @@ end
 function LyceumBase.step!(m::MPPI{DT,nu}, s, nthreads) where {DT,nu}
     randn!(m.noise)
     lmul!(m.covar_ul, reshape(m.noise, (nu, :)))
+    m.noise .+= m.meantrajectory # noise is now the mean + noise = actions
+    _clampctrl!(m.noise, m.clamps)
+
     if nthreads == 1
         # short circuit
         threadstep!(m, s, 1:m.K)
@@ -186,10 +206,8 @@ function perturbedrollout!(m::MPPI{DT,nu}, state, k, tid) where {DT,nu}
     setstate!(env, state)
     discountedreward = zero(DT)
     discountfactor = one(DT)
-    @uviews mean noise @inbounds for t = 1:m.H
-        mean_t = SVector{nu,DT}(view(mean, :, t))
-        noise_tk = SVector{nu,DT}(view(noise, :, t, k))
-        action_t = mean_t + noise_tk
+    @uviews noise @inbounds for t = 1:m.H
+        action_t = SVector{nu,DT}(view(noise, :, t, k))
         setaction!(env, action_t)
 
         step!(env)
@@ -219,6 +237,7 @@ function combinetrajectories!(m::MPPI{DT,nu}) where {DT,nu}
 
     costs ./= eta
 
+    m.meantrajectory .= zero(DT)
     for k = 1:m.K, t = 1:m.H, u = 1:nu
         @inbounds m.meantrajectory[u, t] += costs[k] * m.noise[u, t, k]
     end
