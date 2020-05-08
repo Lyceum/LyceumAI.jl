@@ -37,29 +37,13 @@ using RecursiveArrayTools
 using UnsafeArrays
 using Zygote: Params, Grads
 
-#export
-#       # Algorithms
-#      MPPI,
-#      NaturalPolicyGradient,
-
-#       # Models
-#      DiagGaussianPolicy,
-#      grad_loglikelihood!,
-#      loglikelihood,
-
-#       # Flux tools
-#      FluxTrainer,
-#      FluxTrainerIterator,
-#      orthonormal,
-#      multilayer_perceptron,
-
-#       # Miscellaneous
-#      ControllerIterator
-
-const AbsVecOrMat{T} = Union{AbstractVector{T},AbstractMatrix{T}}
+const AbsVecOrMat{T} = Union{AbstractVector{T},AbstractMatrix{T}} # TODO
 
 #include("util/misc.jl")
 #include("vectorproducts.jl")
+
+
+#FluxTrainer, FluxTrainerIterator, orthonormal, multilayer_perceptron,
 #include("flux.jl")
 
 
@@ -73,10 +57,15 @@ export DiagonalGaussianPolicy
 
 
 #include("algorithms/cg.jl")
+
+#export MPPI
 #include("algorithms/MPPI.jl")
+
+#export NaturalPolicyGradient
 #include("algorithms/naturalpolicygradient.jl")
 
 
+export ControllerIterator
 #include("controller.jl")
 
 end # module
