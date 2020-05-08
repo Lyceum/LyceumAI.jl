@@ -14,6 +14,7 @@ using DocStringExtensions
 using Distributions
 using DistributionsAD
 
+using EllipsisNotation
 using FastClosures
 
 using Flux
