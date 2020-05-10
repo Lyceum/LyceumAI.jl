@@ -190,11 +190,11 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     @unpack O, A, R, oT = batch
-    O_mat = SpecialArrays.flatview(O)::AbstractMatrix
-    A_mat = SpecialArrays.flatview(A)::AbstractMatrix
-    oT_mat = SpecialArrays.flatview(oT)::AbstractMatrix
-    advantages  = batchlike(advantages_vec, batch)
-    returns     = batchlike(returns_vec, batch)
+    O_mat = SpecialArrays.flatten(O)::AbstractMatrix
+    A_mat = SpecialArrays.flatten(A)::AbstractMatrix
+    oT_mat = SpecialArrays.flatten(oT)::AbstractMatrix
+    advantages  = similarbatch(advantages_vec, batch)
+    returns     = similarbatch(returns_vec, batch)
 
     if npg.value_feature_op !== nothing
         # TODO change this
@@ -207,9 +207,9 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Get baseline and terminal values for the current batch using the last value function
     baseline_vec = dropdims(value(feat_mat), dims = 1)
-    baseline = batchlike(baseline_vec, batch)
+    baseline = similarbatch(baseline_vec, batch)
     termvals = dropdims(value(termfeat_mat), dims = 1)
-    R = batchlike(R, batch)
+    R = similarbatch(R, batch)
 
     # Compute normalized GAE advantages and returns
     GAEadvantages!(advantages, baseline, R, termvals, gamma, gaelambda)
@@ -277,7 +277,7 @@ end
 
 
 
-@inline function batchlike(A::AbsVec, B::AbsVec{<:AbsVec}) # TODO document
+@inline function similarbatch(A::AbsVec, B::AbsVec{<:AbsVec}) # TODO document
     offsets = Vector{Int}(undef, length(B) + 1)
     offsets[1] = 0
     for i in LinearIndices(B)
@@ -288,6 +288,6 @@ end
     BatchedVector(A, offsets)
 end
 
-@inline function batchlike(A::AbsVec, B::LyceumBase.TrajectoryBuffer) # TODO document
+@inline function similarbatch(A::AbsVec, B::LyceumBase.TrajectoryBuffer) # TODO document
     BatchedVector(A, copy(B.offsets))
 end
