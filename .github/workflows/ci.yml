@@ -53,15 +53,15 @@ jobs:
       - name: Prepare environment
         run: julia --color=yes -e 'using Run; Run.prepare_test()'
         shell: bash
-      - name:  Setup virtual display
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt update
-          sudo apt install xorg-dev xvfb
-          sudo Xvfb :99 -screen 0 1024x768x24 &
+      #- name:  Setup virtual display
+      #  if: runner.os == 'Linux'
+      #  run: |
+      #    sudo apt update
+      #    sudo apt install xorg-dev xvfb
+      #    sudo Xvfb :99 -screen 0 1024x768x24 &
       - name: Run tests
         run: julia --color=yes -e 'using Run; Run.test()'
         shell: bash
         env:
           MUJOCO_KEY: ${{ secrets.MUJOCO_KEY }}
-          DISPLAY: ':99'
+        #  DISPLAY: ':99'
