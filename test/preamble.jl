@@ -1,7 +1,7 @@
 using Flux
-using LyceumCore
 using LyceumDevTools.TestUtil
 using Random
+using StructArrays
 using Test
 
 using Zygote

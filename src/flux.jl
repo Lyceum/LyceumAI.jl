@@ -30,7 +30,7 @@ function (p::FluxTrainer)(model, datas::Vararg{<:AbstractArray}; kwargs...)
     isnothing(lossfn) && error("`lossfn` not specified and no default provided")
     !(isnothing(szbatch) || szbatch isa Integer) && error("`szbatch` must be `nothing` or <:Integer")
 
-    datas = isnothing(szbatch) ? (datas,) : eachbatch(datas, szbatch, batchdim)
+    datas = isnothing(szbatch) ? (datas,) : eachbatch(shuffleobs(datas), szbatch, batchdim)
     FluxTrainerIterator(model, datas, optimiser, lossfn, batchdim, stopcb)
 end
 

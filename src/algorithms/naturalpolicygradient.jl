@@ -184,7 +184,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
-        batch = @closure sample(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, o
+        batch = @closure rollout(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, o
             sample!(a, policy, o)
         end
     end
@@ -196,10 +196,12 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     advantages  = similarbatch(advantages_vec, batch)
     returns     = similarbatch(returns_vec, batch)
 
+    trajectories = StructArray(batch)
+
     if npg.value_feature_op !== nothing
         # TODO change this
         feat_mat = npg.value_feature_op(O_mat)
-        termfeat_mat = npg.value_feature_op(oT_mat, map(length, batch))
+        termfeat_mat = npg.value_feature_op(oT_mat, map(length, trajectories))
     else
         feat_mat = O_mat
         termfeat_mat = oT_mat
@@ -221,7 +223,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
     end
 
     # Fit value function to the current batch
-    elapsed_valuefit = @elapsed foreach(noop, valuefit!(value, feat_mat, returns_vec))
+    # TODO valuefit! should just be a funciton call
+    elapsed_valuefit = @elapsed foreach(identity, valuefit!(value, feat_mat, returns_vec))
 
     # Compute ∇log π_θ(at | ot)
     elapsed_gradll = @elapsed grad_loglikelihood!(

@@ -1,3 +1,7 @@
+module TestNaturalPolicyGradient
+
+include("../preamble.jl")
+
 @testset "NaturalPolicyGradient (PointMass)" begin
     tseed!(1)
     etype = LyceumMuJoCo.PointMass
@@ -46,10 +50,15 @@
     npasses = 0
     for (i, state) in enumerate(npg)
         (npasses > 5 || i > 250) && break
-        batch = sample(envsampler, N, reset! = randreset!, Hmax=Hmax) do a, o
+        batch = rollout(envsampler, N, reset! = randreset!, Hmax=Hmax) do a, o
             a .= policy(o)
         end
-        npasses = mean(τ -> τ.R[end], batch) > 0.95 ? npasses + 1 : 0
+
+        meantrajectories = StructArray(batch)
+
+        npasses = mean(τ -> τ.R[end], meantrajectories) > 0.95 ? npasses + 1 : 0
     end
     @test npasses > 5
+end
+
 end
