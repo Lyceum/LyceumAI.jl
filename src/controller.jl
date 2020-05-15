@@ -42,15 +42,7 @@ function Base.iterate(it::ControllerIterator, t::Int = 1)
 
     rolloutstep!(it.controller, it.trajectory, it.env, t)
     if mod(t, it.plotiter) == 0
-        rew = @views Tools.Line(it.trajectory.rewards[1:t], "Reward")
-        eval = @views Tools.Line(it.trajectory.evaluations[1:t], "Eval")
-        plt = Tools.termplot(
-            rew,
-            eval,
-            title = "ControllerIterator Iteration=$t/$(it.T)",
-            width = 40,
-        )
-        display(plt)
+        display(termplot(it.trajectory.rewards[1:t], title = "Reward (t=$t/$(it.T)"))
     end
 
     (t, it), t + 1

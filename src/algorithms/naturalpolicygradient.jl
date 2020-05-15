@@ -176,7 +176,6 @@ end
 
 
 function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
-
     @unpack envsampler, policy, value, valuefit!, Hmax, N, gamma, gaelambda = npg
     @unpack vanilla_pg, natural_pg = npg
     @unpack advantages_vec, returns_vec = npg
@@ -184,19 +183,19 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Perform rollouts with last policy
     elapsed_sample = @elapsed begin
-        batch = @closure rollout(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, o
+        trajectory_buffer = @closure rollout(envsampler, N, reset! = randreset!, Hmax = Hmax, dtype=DT) do a, o
             sample!(a, policy, o)
         end
     end
 
-    @unpack O, A, R, oT = batch
-    O_mat = SpecialArrays.flatten(O)::AbstractMatrix
-    A_mat = SpecialArrays.flatten(A)::AbstractMatrix
-    oT_mat = SpecialArrays.flatten(oT)::AbstractMatrix
-    advantages  = similarbatch(advantages_vec, batch)
-    returns     = similarbatch(returns_vec, batch)
+    O_mat = SpecialArrays.flatten(trajectory_buffer.O)::AbstractMatrix
+    A_mat = SpecialArrays.flatten(trajectory_buffer.A)::AbstractMatrix
+    oT_mat = SpecialArrays.flatten(trajectory_buffer.oT)::AbstractMatrix
 
-    trajectories = StructArray(batch)
+    trajectories = StructArray(trajectory_buffer)
+    R = trajectories.R
+    advantages  = SpecialArrays.similarbatch(advantages_vec, R)
+    returns     = SpecialArrays.similarbatch(returns_vec, R)
 
     if npg.value_feature_op !== nothing
         # TODO change this
@@ -209,9 +208,8 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
 
     # Get baseline and terminal values for the current batch using the last value function
     baseline_vec = dropdims(value(feat_mat), dims = 1)
-    baseline = similarbatch(baseline_vec, batch)
+    baseline = SpecialArrays.similarbatch(baseline_vec, R)
     termvals = dropdims(value(termfeat_mat), dims = 1)
-    R = similarbatch(R, batch)
 
     # Compute normalized GAE advantages and returns
     GAEadvantages!(advantages, baseline, R, termvals, gamma, gaelambda)
@@ -270,7 +268,7 @@ function Base.iterate(npg::NaturalPolicyGradient{DT}, i = 1) where {DT}
             cg = elapsed_cg,
             valuefit = elapsed_valuefit,
         ),
-        batch = batch,
+        trajectory_buffer = trajectory_buffer,
         vpgnorm = norm(vanilla_pg),
         npgnorm = norm(natural_pg),
     )
@@ -280,17 +278,17 @@ end
 
 
 
-@inline function similarbatch(A::AbsVec, B::AbsVec{<:AbsVec}) # TODO document
-    offsets = Vector{Int}(undef, length(B) + 1)
-    offsets[1] = 0
-    for i in LinearIndices(B)
-        offset = offsets[i] + length(B[i])
-        checkbounds(A, offset)
-        offsets[i + 1] = offset
-    end
-    BatchedVector(A, offsets)
-end
+#@inline function similarbatch(A::AbsVec, B::AbsVec{<:AbsVec}) # TODO document
+#    offsets = Vector{Int}(undef, length(B) + 1)
+#    offsets[1] = 0
+#    for i in LinearIndices(B)
+#        offset = offsets[i] + length(B[i])
+#        checkbounds(A, offset)
+#        offsets[i + 1] = offset
+#    end
+#    BatchedVector(A, offsets)
+#end
 
-@inline function similarbatch(A::AbsVec, B::LyceumBase.TrajectoryBuffer) # TODO document
-    BatchedVector(A, copy(B.offsets))
-end
+#@inline function similarbatch(A::AbsVec, B::LyceumBase.TrajectoryBuffer) # TODO document
+#    BatchedVector(A, copy(B.offsets))
+#end

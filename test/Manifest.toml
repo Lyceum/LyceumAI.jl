@@ -465,14 +465,14 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LyceumAI]]
-deps = ["Base64", "Distances", "Distributions", "DistributionsAD", "DocStringExtensions", "EllipsisNotation", "FastClosures", "Flux", "Future", "IterativeSolvers", "LearnBase", "LinearAlgebra", "LyceumBase", "LyceumDevTools", "LyceumMuJoCo", "MLDataPattern", "MacroTools", "MuJoCo", "MuJoCo_jll", "OrderedCollections", "Parameters", "Random", "RecursiveArrayTools", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "StructArrays", "UnsafeArrays", "Zygote"]
+deps = ["Base64", "Distances", "Distributions", "DistributionsAD", "DocStringExtensions", "EllipsisNotation", "FastClosures", "Flux", "Future", "IterativeSolvers", "LearnBase", "LinearAlgebra", "LyceumBase", "LyceumDevTools", "LyceumMuJoCo", "MLDataPattern", "MacroTools", "MuJoCo", "MuJoCo_jll", "OrderedCollections", "Random", "RecursiveArrayTools", "Shapes", "SpecialArrays", "StaticArrays", "Statistics", "StructArrays", "UnPack", "UnsafeArrays", "Zygote"]
 path = ".."
 uuid = "6917c76a-ac01-4302-a33e-8c456ab70f71"
 version = "0.3.0-DEV"
 
 [[LyceumBase]]
 deps = ["Adapt", "AutoHashEquals", "BangBang", "Dates", "Distributions", "DocStringExtensions", "ElasticArrays", "Future", "IterTools", "LinearAlgebra", "MacroTools", "Parameters", "Pkg", "Printf", "Random", "Setfield", "Shapes", "SpecialArrays", "StaticArrays", "StructArrays", "UnicodePlots", "UnsafeArrays"]
-git-tree-sha1 = "1d61308aee9b9bb0643bb84608c447e48e74ee59"
+git-tree-sha1 = "0dd0b6ff7c2f81ab08d37a6fb014fe5b96784c7f"
 repo-rev = "master"
 repo-url = "https://github.com/Lyceum/LyceumBase.jl.git"
 uuid = "db31fed1-ca1e-4084-8a49-12fae1996a55"

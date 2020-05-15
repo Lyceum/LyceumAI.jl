@@ -114,7 +114,7 @@ function MPPI{DT}(;
     K,
     H,
     gamma = 1,
-    value = zerofn,
+    value = default_valuefn,
     initfn! = default_initfn!,
 ) where {DT<:AbstractFloat}
     MPPI{DT}(env_tconstructor, K, H, covar, lambda, gamma, value, initfn!)
@@ -240,3 +240,5 @@ end
         fill!(lastcontrols, 0)
     end
 end
+
+default_valuefn(obs) = 0

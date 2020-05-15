@@ -1,3 +1,7 @@
+module TestMPPI
+
+include("../preamble.jl")
+
 @testset "MPPI (PointMass)" begin
     tseed!(1)
     etype = LyceumMuJoCo.PointMass
@@ -18,5 +22,8 @@
     experiment = ControllerIterator(f, env; T=T, plotiter=T+1)
     for x in experiment
     end
+
     @test isapprox(getreward(env), 1, atol=0.001)
+end
+
 end
