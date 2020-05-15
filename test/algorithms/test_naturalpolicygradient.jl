@@ -121,7 +121,7 @@ end
         end
         mean_trajectories = StructArray(mean_trajectory_buffer)
 
-        @info mean(τ -> sum(τ.R), mean_trajectories) > 2750
+        @info mean(τ -> sum(τ.R), mean_trajectories)
         pass = mean(τ -> sum(τ.R), mean_trajectories) > 2750
         (pass || i > 150) && break
     end
