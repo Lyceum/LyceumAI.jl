@@ -1,6 +1,6 @@
 # LyceumAI
 
-![](https://github.com/Lyceum/LyceumAI.jl/workflows/CI/badge.svg)
+[![](https://github.com/Lyceum/LyceumAI.jl/workflows/CI/badge.svg)](https://github.com/Lyceum/LyceumAI.jl/actions)
 
 LyceumAI is a component package of the Lyceum ecosystem. It provides tools and frameworks to
 support algorithm development for continous control problems, such as trajectory optimization and
