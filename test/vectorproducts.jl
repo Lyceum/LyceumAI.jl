@@ -1,3 +1,5 @@
+module TestVectorProducts
+
 @testset "FVP" begin
     # test for correct output and no side effects
     d1, d2 = 5, 10
@@ -29,4 +31,6 @@
         y2 = 1/d2 * glls * transpose(glls) * x
         isapprox(y1, y2) && x == x2 && glls == glls2
     end
+end
+
 end

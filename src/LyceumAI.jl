@@ -1,95 +1,69 @@
 module LyceumAI
 
-# stdlib
 using Random
 using Random: default_rng
 using Statistics, LinearAlgebra
 
 # 3rd party
 import LearnBase
+using MLDataPattern: MLDataPattern, shuffleobs, eachbatch, nobs
+
+using Base: @propagate_inbounds, require_one_based_indexing
 using DocStringExtensions
-import Flux: params, params!
-import Flux.Optimise: update!
-using UnsafeArrays,
-      StaticArrays,
-      Distances,
-      FastClosures,
-      IterativeSolvers,
-      Parameters,
-      EllipsisNotation,
-      Flux,
-      Zygote,
 
-      Shapes,
-      LyceumBase
+using Distributions
+using DistributionsAD
 
-# Lyceum
+using EllipsisNotation # TODO
+using FastClosures
+
+using Flux
+using Flux: @functor, params
+using Zygote
 using Zygote: Params, Grads
-using Base: promote_eltype, @propagate_inbounds, require_one_based_indexing
-using MLDataPattern: eachbatch, nobs
-using MacroTools: @forward
+
+using IterativeSolvers
+using LyceumBase
+using MacroTools
+
+using Random
+using Random: default_rng
+
+using Shapes
+using Statistics: Statistics, mean, mean!, var, cov, cor
+using UnPack
+
+using StructArrays
+using UnsafeArrays
+using StaticArrays
 using SpecialArrays
-using LyceumBase: @mustimplement
 
-zerofn(args...) = 0
-noop(args...) = nothing
-
-
-export
-       # Algorithms
-      MPPI,
-      NaturalPolicyGradient,
-
-       # Models
-      DiagGaussianPolicy,
-      grad_loglikelihood!,
-      loglikelihood,
-
-       # Flux tools
-      FluxTrainer,
-      FluxTrainerIterator,
-      orthonormal,
-      multilayer_perceptron,
-
-       # Miscellaneous
-      ControllerIterator
+const AbsVec{T} = AbstractVector{T}
+const AbsMat{T} = AbstractMatrix{T}
+const AbsArr{T} = AbstractArray{T}
+const AbsVecOrMat{T} = Union{AbstractVector{T},AbstractMatrix{T}} # TODO
 
 
-const AbsVec = AbstractVector
-const AbsMat = AbstractMatrix
-
-infinitecb(x...) = false
-
-
-abstract type AbstractModel{T} end
-Base.eltype(m::AbstractModel{T}) where {T} = T
-
-@mustimplement params(m::AbstractModel)
-@mustimplement params!(ps, m::AbstractModel)
-@mustimplement params!(m::AbstractModel, ps)
-
-@mustimplement update!(m::AbstractModel, gs)
-
-
-include("util/misc.jl")
+include("misc.jl")
 include("vectorproducts.jl")
+include("cg.jl")
 
+export ControllerIterator
+include("controller.jl")
+
+export FluxTrainer, orthonormal, multilayer_perceptron
 include("flux.jl")
 
+#include("abstractpolicy.jl") # TODO move to LyceumBase
+#include("policy.jl")
+include("oldpolicy.jl")
+export DiagGaussianPolicy
 
-include("models/policy.jl")
-export DiagGaussianPolicy, grad_loglikelihood!, loglikelihood
 
-abstract type AbstractTrainer end
-# (o::AbstractTrainer{M})(m::M) where M
-#@mustimplement fit!(m::AbstractModel, data); export fit!
-# --
-
-include("algorithms/cg.jl")
+export MPPI
 include("algorithms/MPPI.jl")
+export NaturalPolicyGradient
 include("algorithms/naturalpolicygradient.jl")
 
-
-include("controller.jl")
 
 end # module
