@@ -10,8 +10,7 @@ import LearnBase
 using DocStringExtensions
 import Flux: params, params!
 import Flux.Optimise: update!
-using UnsafeArrays,
-      StaticArrays,
+using StaticArrays,
       Distances,
       FastClosures,
       IterativeSolvers,

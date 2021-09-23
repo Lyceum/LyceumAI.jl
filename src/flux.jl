@@ -125,10 +125,10 @@ function flatupdate!(m, gs::AbstractVector)
     np == length(gs) || throw(ArgumentError("length(gs) != number of parameters"))
 
     from = firstindex(gs)
-    @uviews gs for p in params(m)
+    for p in params(m)
         p = vec(Zygote.unwrap(p))
         to = from + length(p) - 1
-        p .+= uview(gs, from:to)
+        p .+= view(gs, from:to)
         from += length(p)
     end
     m

@@ -169,9 +169,9 @@ function _threaded_gradll!(
     range::UnitRange{Int},
 )
     for i in range
-        feat = uview(feats, :, i)
-        act = uview(acts, :, i)
-        gradll = uview(gradlls, :, i)
+        feat = view(feats, :, i)
+        act = view(acts, :, i)
+        gradll = view(gradlls, :, i)
         grad_loglikelihood!(gradll, m, act, feat)
     end
     gradlls

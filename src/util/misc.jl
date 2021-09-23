@@ -42,7 +42,7 @@ end
         end
     end
 
-    @uviews returns rewards for k in axes(returns, 2)
+    for k in axes(returns, 2)
         @inbounds nstep_returns!(view(returns, :, k), view(rewards, :, k), gamma)
     end
     returns
@@ -101,7 +101,7 @@ end
         require_one_based_indexing(returns, rewards, terminal_values)
     end
 
-    @uviews returns rewards for k in axes(returns, 2)
+    for k in axes(returns, 2)
         @inbounds bootstrapped_nstep_returns!(
             view(returns, :, k),
             view(rewards, :, k),
@@ -178,7 +178,7 @@ end
         end
     end
 
-    @uviews advantages values rewards for k in axes(advantages, 2)
+    for k in axes(advantages, 2)
         @inbounds GAEadvantages!(
             view(advantages, :, k),
             view(values, :, k),
@@ -244,9 +244,9 @@ function (op::TimeFeatures)(B::AbstractMatrix, A::AbstractMatrix)
     r2 = (dimobs + 1):(dimobs + dimfeats)
 
     for j = axes(B, 2)
-        a = uview(A, :, j)
-        b1 = uview(B, r1, j)
-        b2 = uview(B, r2, j)
+        a = view(A, :, j)
+        b1 = view(B, r1, j)
+        b2 = view(B, r2, j)
         copyto!(b1, a)
         for k = 1:dimfeats
             i = k + dimobs
@@ -301,9 +301,9 @@ end
     r2 = (dimobs + 1):(dimobs + dimfeats)
 
     for j = axes(B, 2)
-        a = uview(A, :, j)
-        b1 = uview(B, r1, j)
-        b2 = uview(B, r2, j)
+        a = view(A, :, j)
+        b1 = view(B, r1, j)
+        b2 = view(B, r2, j)
         t = (ts[j] - 1) * op.timestep
         copyto!(b1, a)
         for k = 1:dimfeats

@@ -149,7 +149,7 @@ done in parallel using `nthreads` threads.
 
     nthreads = min(m.K, nthreads)
     step!(m, state, nthreads)
-    @inbounds copyto!(action, uview(m.meantrajectory, :, 1))
+    @inbounds copyto!(action, view(m.meantrajectory, :, 1))
     shiftcontrols!(m)
     return action
 end
@@ -186,7 +186,7 @@ function perturbedrollout!(m::MPPI{DT,nu}, state, k, tid) where {DT,nu}
     setstate!(env, state)
     discountedreward = zero(DT)
     discountfactor = one(DT)
-    @uviews mean noise @inbounds for t = 1:m.H
+    @inbounds for t = 1:m.H
         mean_t = SVector{nu,DT}(view(mean, :, t))
         noise_tk = SVector{nu,DT}(view(noise, :, t, k))
         action_t = mean_t + noise_tk
@@ -235,7 +235,7 @@ function shiftcontrols!(m::MPPI{DT,nu}) where {DT,nu}
 end
 
 @inline function default_initfn!(meantraj)
-    @uviews meantraj @inbounds begin
+    @inbounds begin
         lastcontrols = view(meantraj, :, size(meantraj, 2))
         fill!(lastcontrols, 0)
     end

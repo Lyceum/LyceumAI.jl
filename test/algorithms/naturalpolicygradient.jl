@@ -15,14 +15,20 @@
     )
     policy = Flux.paramtype(DT, policy)
 
-    value = multilayer_perceptron(dobs, 16, 16, 1, σ=Flux.relu)
+    timefeaturizer = LyceumAI.TimeFeatures{DT}(
+                                                [1, 2, 3, 4],
+                                                [1, 1, 1, 1],
+                                                1 / 1000
+                                               )
+    value = multilayer_perceptron(dobs+length(timefeaturizer.orders),
+                                  16, 16, 1, σ=Flux.relu)
     valueloss(bl, X, Y) = mse(vec(bl(X)), vec(Y))
 
     valuetrainer = FluxTrainer(
         optimiser = ADAM(1e-3),
         szbatch = 32,
         lossfn = valueloss,
-        stopcb = s->s.nepochs > 4
+        stopcb = s->s.nepochs > 2
     )
     value = Flux.paramtype(DT, value)
 
@@ -36,6 +42,7 @@
         Hmax=Hmax,
         norm_step_size=0.05,
         N=N,
+        value_feature_op = timefeaturizer
     )
 
     x = Float64[]
@@ -43,5 +50,6 @@
         i > 50 && break
         push!(x, state.meanterminal_eval)
     end
-    @test mean(x[(end-10):end]) < 0.15
+    m = mean(x[(end-10):end])
+    @test m < 0.15
 end
